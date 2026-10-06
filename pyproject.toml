@@ -1,0 +1,29 @@
+[project]
+name = "saturn-browser"
+version = "0.1.0"
+description = "Saturn — Agentic Web Browser (MVP)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Saturn Team"}]
+dependencies = [
+    "playwright>=1.44.0",
+    "openai>=1.30.0",
+    "python-dotenv>=1.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "rich>=13.7.0",
+    "websockets>=12.0",
+    "jinja2>=3.1.0",
+]
+
+[project.scripts]
+saturn = "saturn.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["saturn*"]
+
+[build-system]
+requires = ["setuptools", "wheel"]

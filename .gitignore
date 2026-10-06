@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.playwright/
+.DS_Store
+
+# Local release builds
+build-release/
