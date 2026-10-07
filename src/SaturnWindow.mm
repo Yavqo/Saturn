@@ -3008,7 +3008,11 @@ static void YRing(NSView *box, BOOL on) {
         for (NSView *v in self.avatarButton.subviews) {
             if (v.tag == 999) v.hidden = NO;
         }
-        self.avatarButton.layer.backgroundColor = Y_soft().CGColor;
+        BOOL in = [[SupabaseClient shared] isSignedIn];
+        self.avatarButton.layer.backgroundColor = (in ? Y_blue() : Y_soft()).CGColor;
+        for (NSView *v in self.avatarButton.subviews) {
+            if (v.tag == 999 && [v isKindOfClass:[NSImageView class]]) ((NSImageView *)v).contentTintColor = in ? [NSColor whiteColor] : Y_ink();
+        }
     });
 }
 - (void)updateSearchPlaceholder {
