@@ -1535,7 +1535,7 @@ static NSString *PlainNotes(NSString *md) {
         case SaturnUpdateStateFailed:
             title = @"The update didn't finish";
             sub = u.errorText; subIsError = YES;
-            primary = @"Try again"; secondary = @"Later";
+            primary = @"Try again"; secondary = u.releasePageURL.length ? @"Download" : @"Later";
             break;
         default:
             title = @"Saturn is up to date";
@@ -1612,7 +1612,12 @@ static NSString *PlainNotes(NSString *md) {
     }
 }
 - (void)primaryTapped:(id)s { (void)s; [[SaturnUpdater shared] installUpdate]; }
-- (void)laterTapped:(id)s { (void)s; [self.view.window close]; }
+- (void)laterTapped:(id)s {
+    (void)s;
+    SaturnUpdater *u = [SaturnUpdater shared];
+    if (u.state == SaturnUpdateStateFailed && u.releasePageURL.length) [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:u.releasePageURL]];   // manual route
+    [self.view.window close];
+}
 @end
 
 #pragma mark - Find in page bar

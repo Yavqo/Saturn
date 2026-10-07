@@ -30,6 +30,7 @@ static BOOL VersionIsNewer(NSString *candidate, NSString *current) {
     SaturnUpdateState _state;
     NSString *_availableVersion, *_releaseNotes, *_releasePageURL, *_errorText, *_assetName, *_assetDigest;
     NSURL *_assetURL;
+    NSString *_launchFailure;   // why the previous attempt gave up, found at launch
     double _progress;
     NSURLSession *_session;
     NSTimer *_timer;
@@ -66,8 +67,15 @@ static BOOL VersionIsNewer(NSString *candidate, NSString *current) {
 #pragma mark Checking
 
 - (void)startAutomaticChecks {
-    // Clear leftovers from the last update
+    // Clear leftovers from the last update. If the installer script gave up, remember why: the old version is running again.
     NSString *dir = [SaturnUpdater workDir];
+    NSString *marker = [dir stringByAppendingPathComponent:@"failed.txt"];
+    NSString *reason = [NSString stringWithContentsOfFile:marker encoding:NSUTF8StringEncoding error:nil];
+    if (reason.length) {
+        _launchFailure = [NSString stringWithFormat:@"The last update couldn't be installed (%@). Download Saturn and drag it into your Applications folder to update.",
+                          [reason stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
+        [[NSFileManager defaultManager] removeItemAtPath:marker error:nil];
+    }
     for (NSString *f in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
         if (![f isEqualToString:@"update.log"]) [[NSFileManager defaultManager] removeItemAtPath:[dir stringByAppendingPathComponent:f] error:nil];
     }
@@ -125,6 +133,7 @@ static BOOL VersionIsNewer(NSString *candidate, NSString *current) {
     _assetName = chosen[@"name"];
     _assetDigest = [chosen[@"digest"] isKindOfClass:[NSString class]] ? chosen[@"digest"] : nil;   // "sha256:…" when GitHub provides it
     _errorText = nil;
+    if (_launchFailure) { NSString *why = _launchFailure; _launchFailure = nil; [self failWith:why]; return YES; }
     [self setState:SaturnUpdateStateAvailable];
     return YES;
 }
@@ -161,7 +170,17 @@ static BOOL VersionIsNewer(NSString *candidate, NSString *current) {
     [[_session downloadTaskWithRequest:req] resume];
 }
 
+static void AppendUpdateLog(NSString *line) {
+    NSString *path = [[SaturnUpdater workDir] stringByAppendingPathComponent:@"update.log"];
+    NSString *entry = [NSString stringWithFormat:@"%@ %@\n", [NSDate date], line];
+    NSFileHandle *h = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (!h) { [entry writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil]; return; }
+    [h seekToEndOfFile]; [h writeData:[entry dataUsingEncoding:NSUTF8StringEncoding]]; [h closeFile];
+}
+
 - (void)failWith:(NSString *)text {
+    NSLog(@"[updater] failed: %@", text);
+    AppendUpdateLog([NSString stringWithFormat:@"failed (running %@ from %@): %@", self.currentVersion, [NSBundle mainBundle].bundlePath, text]);
     _errorText = text;
     [self setState:SaturnUpdateStateFailed];
 }
@@ -259,7 +278,7 @@ static int RunTool(NSString *path, NSArray<NSString *> *args) {
     NSString *log = [[SaturnUpdater workDir] stringByAppendingPathComponent:@"update.log"];
     NSString *script = @"#!/bin/sh\n"
         "# args: pid new-app destination\n"
-        "PID=\"$1\"; NEW=\"$2\"; DEST=\"$3\"; OLD=\"$DEST.previous\"\n"
+        "PID=\"$1\"; NEW=\"$2\"; DEST=\"$3\"; FAIL=\"$4\"; OLD=\"$DEST.previous\"\n"
         "echo \"$(date) updating $DEST from $NEW\"\n"
         "i=0; while kill -0 \"$PID\" 2>/dev/null && [ $i -lt 100 ]; do sleep 0.3; i=$((i+1)); done\n"
         "rm -rf \"$OLD\"\n"
@@ -269,10 +288,10 @@ static int RunTool(NSString *path, NSArray<NSString *> *args) {
         "    rm -rf \"$OLD\"\n"
         "    echo \"updated\"\n"
         "  else\n"
-        "    echo \"copy failed, restoring\"; rm -rf \"$DEST\"; [ -e \"$OLD\" ] && mv \"$OLD\" \"$DEST\"\n"
+        "    echo \"copy failed, restoring\"; echo \"copying the new version failed\" > \"$FAIL\"; rm -rf \"$DEST\"; [ -e \"$OLD\" ] && mv \"$OLD\" \"$DEST\"\n"
         "  fi\n"
         "else\n"
-        "  echo \"could not move the old app\"\n"
+        "  echo \"could not move the old app\"; echo \"macOS wouldn't let Saturn replace itself\" > \"$FAIL\"\n"
         "fi\n"
         "/usr/bin/open \"$DEST\"\n";
     NSString *path = [dir stringByAppendingPathComponent:@"apply-update.sh"];
@@ -283,8 +302,8 @@ static int RunTool(NSString *path, NSArray<NSString *> *args) {
     NSTask *t = [[NSTask alloc] init];
     t.executableURL = [NSURL fileURLWithPath:@"/bin/sh"];
     // Detached, so it keeps running after Saturn quits
-    t.arguments = @[@"-c", @"nohup /bin/sh \"$0\" \"$1\" \"$2\" \"$3\" >> \"$4\" 2>&1 &", path,
-                    [NSString stringWithFormat:@"%d", NSProcessInfo.processInfo.processIdentifier], newApp, dest, log];
+    t.arguments = @[@"-c", @"nohup /bin/sh \"$0\" \"$1\" \"$2\" \"$3\" \"$5\" >> \"$4\" 2>&1 &", path,
+                    [NSString stringWithFormat:@"%d", NSProcessInfo.processInfo.processIdentifier], newApp, dest, log, [[SaturnUpdater workDir] stringByAppendingPathComponent:@"failed.txt"]];
     t.standardOutput = [NSFileHandle fileHandleWithNullDevice];
     t.standardError = [NSFileHandle fileHandleWithNullDevice];
     if (![t launchAndReturnError:&e]) { [self failWith:@"Could not start the installer."]; return; }
