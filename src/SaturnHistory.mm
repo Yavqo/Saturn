@@ -85,6 +85,26 @@ static const NSUInteger kPageEntries = 5000;
     [self changed];
 }
 
+- (NSUInteger)importEntries:(NSArray<NSDictionary *> *)entries {
+    NSMutableSet *have = [NSMutableSet set];
+    for (NSDictionary *e in _entries) [have addObject:[NSString stringWithFormat:@"%@|%ld", e[@"u"], (long)[e[@"d"] doubleValue]]];
+    NSUInteger added = 0;
+    for (NSDictionary *e in entries) {
+        NSString *u = e[@"u"];
+        if (![u isKindOfClass:[NSString class]] || ![e[@"d"] isKindOfClass:[NSNumber class]]) continue;
+        NSString *key = [NSString stringWithFormat:@"%@|%ld", u, (long)[e[@"d"] doubleValue]];
+        if ([have containsObject:key]) continue;
+        [have addObject:key];
+        [_entries addObject:@{@"u": u, @"t": [e[@"t"] isKindOfClass:[NSString class]] ? e[@"t"] : @"", @"d": e[@"d"]}];
+        added++;
+    }
+    if (!added) return 0;
+    [_entries sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) { return [b[@"d"] compare:a[@"d"]]; }];
+    if (_entries.count > kMaxEntries) [_entries removeObjectsInRange:NSMakeRange(kMaxEntries, _entries.count - kMaxEntries)];
+    [self changed];
+    return added;
+}
+
 - (void)removeURLString:(NSString *)url visitedAt:(double)seconds {
     for (NSInteger i = 0; i < (NSInteger)_entries.count; i++) {
         NSDictionary *e = _entries[i];

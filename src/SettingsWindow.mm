@@ -1,12 +1,13 @@
 #import "YavqoTheme.h"
 #import "SettingsWindow.h"
+#import "SaturnImporter.h"
 #import "Settings.h"
 #import "SaturnDefaultBrowser.h"
 #import "SaturnAppDelegate.h"
 
 // Settings: search engine (applies as soon as you pick one), default browser, and a full reset.
 
-static const CGFloat kW = 560, kH = 700, kPad = 28, kCardPad = 22;
+static const CGFloat kW = 560, kH = 800, kPad = 28, kCardPad = 22;
 
 static NSView *SettingsCard(void) {
     NSView *v = [[NSView alloc] initWithFrame:NSZeroRect];
@@ -23,7 +24,9 @@ static NSTextField *SettingsLabel(NSString *text, CGFloat size, NSFontWeight wei
 }
 
 @interface SettingsWindow () <NSTextFieldDelegate>
-@property (nonatomic, strong) NSView *engineCard, *browserCard, *resetCard;
+@property (nonatomic, strong) NSView *engineCard, *browserCard, *importCard, *resetCard;
+@property (nonatomic, strong) NSTextField *importTitle, *importDesc;
+@property (nonatomic, strong) NSButton *importButton;
 @property (nonatomic, strong) NSTextField *engineTitle, *engineDesc, *previewLabel, *errorLabel;
 @property (nonatomic, strong) NSPopUpButton *enginePopup;
 @property (nonatomic, strong) NSView *customBox;
@@ -116,6 +119,17 @@ static NSTextField *SettingsLabel(NSString *text, CGFloat size, NSFontWeight wei
     for (NSView *v in @[_browserIcon, _browserTitle, _browserStatus, _browserButton]) [_browserCard addSubview:v];
     [c addSubview:_browserCard];
 
+    // --- Import
+    _importCard = SettingsCard();
+    _importTitle = SettingsLabel(@"Import from another browser", 17, NSFontWeightMedium, Y_ink());
+    _importDesc = SettingsLabel(@"Bring in bookmarks and history from Chrome, Safari, Firefox and others.", 13, NSFontWeightRegular, Y_muted());
+    _importButton = [NSButton buttonWithTitle:@"Import…" target:self action:@selector(importFromBrowser:)];
+    _importButton.bezelStyle = NSBezelStyleRounded;
+    _importButton.frame = NSMakeRect(0, 0, 140, 40);
+    YT_pill(_importButton, NO);
+    for (NSView *v in @[_importTitle, _importDesc, _importButton]) [_importCard addSubview:v];
+    [c addSubview:_importCard];
+
     // --- Reset
     _resetCard = SettingsCard();
     _resetTitle = SettingsLabel(@"Reset Saturn", 17, NSFontWeightMedium, Y_ink());
@@ -196,6 +210,14 @@ static NSTextField *SettingsLabel(NSString *text, CGFloat size, NSFontWeight wei
     _browserButton.frame = NSMakeRect(cw - kCardPad - 140, (h - 40) / 2, 140, 40);
     y -= h + 14;
 
+    // Import card
+    h = 84;
+    _importCard.frame = NSMakeRect(kPad, y - h, cw, h);
+    _importTitle.frame = NSMakeRect(kCardPad, h / 2 + 2, inner - 150, 22);
+    _importDesc.frame = NSMakeRect(kCardPad, h / 2 - 20, inner - 150, 18);
+    _importButton.frame = NSMakeRect(cw - kCardPad - 120, (h - 40) / 2, 120, 40);
+    y -= h + 14;
+
     // Reset card
     h = kCardPad + 22 + 6 + 52 + 16 + 44 + kCardPad;
     _resetCard.frame = NSMakeRect(kPad, y - h, cw, h);
@@ -206,6 +228,13 @@ static NSTextField *SettingsLabel(NSString *text, CGFloat size, NSFontWeight wei
 
     _versionLabel.frame = NSMakeRect(kPad, 38, 200, 16);
     _doneButton.frame = NSMakeRect(kW - kPad - 120, 28, 120, 40);
+}
+
+#pragma mark Import
+
+- (void)importFromBrowser:(id)sender {
+    (void)sender;
+    [SaturnImporter presentImportDialogFromWindow:self];
 }
 
 #pragma mark Default browser

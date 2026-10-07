@@ -13,6 +13,7 @@ extern NSNotificationName const SaturnHistoryChangedNotification;
 - (void)recordURL:(NSURL *)url title:(NSString *)title;
 - (void)removeURLString:(NSString *)url visitedAt:(double)seconds;
 - (void)clearSince:(NSDate *)date;      // nil clears everything
+- (NSUInteger)importEntries:(NSArray<NSDictionary *> *)entries;   // merge visits from another browser; returns how many were new
 - (void)flush;                           // write to disk now
 - (NSString *)historyPageHTML;
 // Address bar suggestions from history and bookmarks. Each item is {kind: "history"|"bookmark", title, url}.

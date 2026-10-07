@@ -8,6 +8,7 @@
 #import "SaturnHistory.h"
 #import "SaturnPermissions.h"
 #import "SaturnUpdater.h"
+#import "SaturnImporter.h"
 #import "SaturnDefaultBrowser.h"
 #import "SaturnBookmarks.h"
 #import "SaturnDownloads.h"
@@ -200,6 +201,7 @@
     [appMenu addItemWithTitle:@"About Saturn" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
     [appMenu addItemWithTitle:@"Check for Updates…" action:@selector(checkForUpdates:) keyEquivalent:@""];
     [appMenu addItemWithTitle:@"Make Saturn Your Default Browser…" action:@selector(makeDefaultBrowser:) keyEquivalent:@""];
+    [appMenu addItemWithTitle:@"Import from Another Browser…" action:@selector(importFromBrowser:) keyEquivalent:@""];
     [appMenu addItem:[NSMenuItem separatorItem]];
     [appMenu addItemWithTitle:@"Saturn Setup…" action:@selector(openSetup:) keyEquivalent:@""];
     [appMenu addItemWithTitle:@"Settings…" action:@selector(openSettings:) keyEquivalent:@","];
@@ -354,6 +356,10 @@
         [al addButtonWithTitle:@"OK"];
         [al runModal];
     }];
+}
+- (void)importFromBrowser:(id)sender {
+    (void)sender;
+    [SaturnImporter presentImportDialogFromWindow:NSApp.keyWindow];
 }
 - (void)resetSitePermissions:(id)sender {
     (void)sender;

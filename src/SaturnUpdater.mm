@@ -131,11 +131,24 @@ static BOOL VersionIsNewer(NSString *candidate, NSString *current) {
 
 #pragma mark Downloading + installing
 
+// Where the new build goes. Normally the app's own location. When Saturn runs from a disk image or from a
+// quarantined (translocated) path that location is read-only, so the update installs into Applications instead.
+- (NSString *)installDestination {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *bundlePath = [NSBundle mainBundle].bundlePath;
+    BOOL readOnlyPlace = [bundlePath containsString:@"/AppTranslocation/"] || [bundlePath hasPrefix:@"/Volumes/"];
+    if (!readOnlyPlace && [fm isWritableFileAtPath:[bundlePath stringByDeletingLastPathComponent]]) return bundlePath;
+    if ([fm isWritableFileAtPath:@"/Applications"]) return @"/Applications/Saturn.app";
+    NSString *home = [NSHomeDirectory() stringByAppendingPathComponent:@"Applications"];
+    [fm createDirectoryAtPath:home withIntermediateDirectories:YES attributes:nil error:nil];
+    if ([fm isWritableFileAtPath:home]) return [home stringByAppendingPathComponent:@"Saturn.app"];
+    return nil;
+}
+
 - (void)installUpdate {
     if (!_assetURL || _state == SaturnUpdateStateDownloading || _state == SaturnUpdateStateInstalling) return;
-    NSString *bundlePath = [NSBundle mainBundle].bundlePath;
-    if (![[NSFileManager defaultManager] isWritableFileAtPath:[bundlePath stringByDeletingLastPathComponent]]) {
-        [self failWith:@"Saturn can't update itself where it is installed. Move it to your Applications folder (or another folder you own) and try again."];
+    if (![self installDestination]) {
+        [self failWith:@"Saturn can't find a place to install the update. Drag Saturn into your Applications folder and try again."];
         return;
     }
     _progress = 0;
@@ -241,7 +254,8 @@ static int RunTool(NSString *path, NSArray<NSString *> *args) {
 
 // The running app cannot replace itself, so a small script waits for it to quit, swaps the bundle and reopens it.
 - (void)launchSwapScriptWithNewApp:(NSString *)newApp inDir:(NSString *)dir {
-    NSString *dest = [NSBundle mainBundle].bundlePath;
+    NSString *dest = [self installDestination];
+    if (!dest) { [self failWith:@"Saturn can't find a place to install the update. Drag Saturn into your Applications folder and try again."]; return; }
     NSString *log = [[SaturnUpdater workDir] stringByAppendingPathComponent:@"update.log"];
     NSString *script = @"#!/bin/sh\n"
         "# args: pid new-app destination\n"
@@ -249,13 +263,13 @@ static int RunTool(NSString *path, NSArray<NSString *> *args) {
         "echo \"$(date) updating $DEST from $NEW\"\n"
         "i=0; while kill -0 \"$PID\" 2>/dev/null && [ $i -lt 100 ]; do sleep 0.3; i=$((i+1)); done\n"
         "rm -rf \"$OLD\"\n"
-        "if mv \"$DEST\" \"$OLD\"; then\n"
+        "if [ ! -e \"$DEST\" ] || mv \"$DEST\" \"$OLD\"; then\n"
         "  if /usr/bin/ditto \"$NEW\" \"$DEST\"; then\n"
         "    /usr/bin/xattr -dr com.apple.quarantine \"$DEST\" 2>/dev/null\n"
         "    rm -rf \"$OLD\"\n"
         "    echo \"updated\"\n"
         "  else\n"
-        "    echo \"copy failed, restoring\"; rm -rf \"$DEST\"; mv \"$OLD\" \"$DEST\"\n"
+        "    echo \"copy failed, restoring\"; rm -rf \"$DEST\"; [ -e \"$OLD\" ] && mv \"$OLD\" \"$DEST\"\n"
         "  fi\n"
         "else\n"
         "  echo \"could not move the old app\"\n"

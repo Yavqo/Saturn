@@ -30,6 +30,7 @@ set(SATURN_SOURCES
     src/SaturnUpdater.mm
     src/SaturnReporter.mm
     src/SaturnDefaultBrowser.mm
+    src/SaturnImporter.mm
 )
 
 add_executable(saturn ${SATURN_SOURCES})
@@ -42,6 +43,7 @@ target_link_libraries(saturn PRIVATE
     "-framework QuartzCore"
     "-framework AVFoundation"
     "-framework Speech"
+    sqlite3
 )
 
 target_include_directories(saturn PRIVATE src)
@@ -74,7 +76,7 @@ set_target_properties(saturn PROPERTIES
 
 # CLI wrapper: also build non-bundle binary for `build/saturn` terminal launch
 add_executable(saturn-cli ${SATURN_SOURCES})
-target_link_libraries(saturn-cli PRIVATE "-framework Cocoa" "-framework WebKit" "-framework UniformTypeIdentifiers" "-framework QuartzCore" "-framework AVFoundation" "-framework Speech")
+target_link_libraries(saturn-cli PRIVATE "-framework Cocoa" "-framework WebKit" "-framework UniformTypeIdentifiers" "-framework QuartzCore" "-framework AVFoundation" "-framework Speech" sqlite3)
 target_include_directories(saturn-cli PRIVATE src)
 target_compile_options(saturn-cli PRIVATE -Wall -Wextra -Wno-deprecated-declarations -O2 -fobjc-arc)
 target_compile_definitions(saturn-cli PRIVATE SATURN_CLI=1)
