@@ -6,6 +6,9 @@
     static NSArray *arr;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
+        SaturnSearchEngineInfo *m = [SaturnSearchEngineInfo new];
+        m.engine = SaturnSearchEngineMars; m.name = @"Mars"; m.shortName = @"Mars"; m.templateURL = @"https://mars.yavqo.com/search?q=%s"; m.homeURL = @"https://mars.yavqo.com"; m.iconSymbol = @"globe";
+
         SaturnSearchEngineInfo *g = [SaturnSearchEngineInfo new];
         g.engine = SaturnSearchEngineGoogle; g.name = @"Google"; g.shortName = @"Google"; g.templateURL = @"https://www.google.com/search?q=%s&hl=en&source=hp&ie=UTF-8&oe=UTF-8"; g.homeURL = @"https://www.google.com"; g.iconSymbol = @"magnifyingglass";
 
@@ -27,7 +30,7 @@
         SaturnSearchEngineInfo *c = [SaturnSearchEngineInfo new];
         c.engine = SaturnSearchEngineCustom; c.name = @"Custom"; c.shortName = @"Custom"; c.templateURL = @""; c.homeURL = @""; c.iconSymbol = @"gearshape";
 
-        arr = @[g,b,d,br,y,e,c];
+        arr = @[m,g,b,d,br,y,e,c];
     });
     return arr;
 }
@@ -54,7 +57,7 @@
     self = [super init];
     if (self) {
         _hasCompletedSetup = NO;
-        _defaultEngine = SaturnSearchEngineGoogle;
+        _defaultEngine = SaturnSearchEngineMars;
         _customTemplate = @"";
     }
     return self;
@@ -72,7 +75,7 @@
 - (NSString *)searchURLForQuery:(NSString *)query {
     NSString *q = [query stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]] ?: @"";
     NSString *tmpl = self.currentEngineInfo.templateURL;
-    if (!tmpl.length) tmpl = @"https://www.google.com/search?q=%s&hl=en&source=hp&ie=UTF-8&oe=UTF-8";
+    if (!tmpl.length) tmpl = [SaturnSearchEngineInfo infoForEngine:SaturnSearchEngineMars].templateURL;
     if ([tmpl containsString:@"%s"]) {
         return [tmpl stringByReplacingOccurrencesOfString:@"%s" withString:q];
     } else if ([tmpl containsString:@"%q"]) {
@@ -107,7 +110,7 @@
     if ([[NSUserDefaults standardUserDefaults] objectForKey:@"saturn.defaultSearchEngine"] != nil) {
         self.defaultEngine = (SaturnSearchEngine)v;
     } else {
-        self.defaultEngine = SaturnSearchEngineGoogle;
+        self.defaultEngine = SaturnSearchEngineMars;
     }
     NSString *ct = [[NSUserDefaults standardUserDefaults] stringForKey:@"saturn.customSearchTemplate"];
     if (ct) self.customTemplate = ct;
@@ -118,7 +121,7 @@
         if (completion) completion(NO, nil);
         return;
     }
-    NSString *engineName = self.currentEngineInfo.name ?: @"Google";
+    NSString *engineName = self.currentEngineInfo.name ?: @"Mars";
     NSDictionary *payload = @{
         @"default_search_engine": engineName,
         @"custom_search_template": self.customTemplate ?: @"",

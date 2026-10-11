@@ -9,6 +9,7 @@ typedef NS_ENUM(NSInteger, SaturnSearchEngine) {
     SaturnSearchEngineYahoo,
     SaturnSearchEngineEcosia,
     SaturnSearchEngineCustom,
+    SaturnSearchEngineMars,
 };
 
 @interface SaturnSearchEngineInfo : NSObject

@@ -510,6 +510,7 @@ static CGPathRef SU_checkPath(CGFloat s) {
     [pv addSubview:SU_label(@"Pick a default. You can change it any time in Settings.", SU_font(16, NSFontWeightRegular), Y_muted(), NSMakeRect(0, 346, kSetupW, 22), NSTextAlignmentCenter, NO)];
 
     NSArray *engines = @[
+        @{@"e": @(SaturnSearchEngineMars),       @"n": @"Mars",         @"s": @"Search by Yavqo",     @"c": Y_blue(),              @"i": @"globe",                 @"l": @""},
         @{@"e": @(SaturnSearchEngineGoogle),     @"n": @"Google",       @"s": @"Fast web search",    @"c": YT_rgb(66, 133, 244, 1), @"i": @"",                      @"l": @"G"},
         @{@"e": @(SaturnSearchEngineDuckDuckGo), @"n": @"DuckDuckGo",   @"s": @"Private by default", @"c": YT_rgb(222, 88, 51, 1),  @"i": @"shield.lefthalf.filled", @"l": @""},
         @{@"e": @(SaturnSearchEngineBrave),      @"n": @"Brave Search", @"s": @"Independent index",  @"c": YT_rgb(251, 84, 43, 1),  @"i": @"flame.fill",            @"l": @""},
@@ -517,7 +518,7 @@ static CGPathRef SU_checkPath(CGFloat s) {
         @{@"e": @(SaturnSearchEngineEcosia),     @"n": @"Ecosia",       @"s": @"Plants trees",        @"c": YT_rgb(51, 168, 84, 1),   @"i": @"leaf.fill",             @"l": @""},
         @{@"e": @(SaturnSearchEngineYahoo),      @"n": @"Yahoo",        @"s": @"Classic search",      @"c": YT_rgb(95, 1, 209, 1),    @"i": @"",                      @"l": @"Y"},
     ];
-    CGFloat cw = 300, ch = 72, gx = 16, gy = 14;
+    CGFloat cw = 300, ch = 72, gx = 16, gy = 10;
     CGFloat x0 = (kSetupW - (cw * 2 + gx)) / 2;
     CGFloat topRowY = 262;
     [_cards removeAllObjects];

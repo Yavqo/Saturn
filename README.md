@@ -36,7 +36,7 @@ open build/saturn.app --args https://example.com
 ./build/saturn-cli --url https://example.com
 ```
 
-**Toolbar:** `‹` Back, `›` Forward, `↻` Reload, address bar (auto `https://` + DuckDuckGo search fallback), `Go` (Enter), 🪐 badge. Menu: `Cmd+N` new window, `Cmd+R` reload, `Cmd+L` focus address `Cmd+[/]` back/forward, `Cmd+0/+/−` zoom.
+**Toolbar:** `‹` Back, `›` Forward, `↻` Reload, address bar (auto `https://` + Mars (mars.yavqo.com) search fallback), `Go` (Enter), 🪐 badge. Menu: `Cmd+N` new window, `Cmd+R` reload, `Cmd+L` focus address `Cmd+[/]` back/forward, `Cmd+0/+/−` zoom.
 
 ### Features (MVP)
 - Single window (multi-window via `Cmd+N`), WKWebView with back/forward gestures, JS enabled, alerts/confirms native `NSAlert`, `_blank` opens in same view

@@ -2250,7 +2250,7 @@ static void YRing(NSView *box, BOOL on) {
         [self makeKeyAndOrderFront:nil];
         [self buildChrome];
         NSString *home = SaturnSettings.shared.currentEngineInfo.homeURL;
-        if (!home.length) home = @"https://www.google.com";
+        if (!home.length) home = @"https://mars.yavqo.com";
         NSURL *initial = url ?: [NSURL URLWithString:home];
         [self createNewTabWithURL:initial];
     }
@@ -2435,7 +2435,7 @@ static void YRing(NSView *box, BOOL on) {
     [self.omniboxContainer addSubview:searchIcon];
 
     self.addressBar = [[NSTextField alloc] initWithFrame:NSMakeRect(40, 10, omniboxW - 40 - 120, 18)];
-    NSString *ph = [NSString stringWithFormat:@"Search %@ or enter website name", SaturnSettings.shared.currentEngineInfo.shortName ?: @"Google"];
+    NSString *ph = [NSString stringWithFormat:@"Search %@ or enter website name", SaturnSettings.shared.currentEngineInfo.shortName ?: @"Mars"];
     self.addressBar.placeholderString = ph;
     self.addressBar.stringValue = SaturnSettings.shared.currentEngineInfo.homeURL ?: @"";
     self.addressBar.bezeled = NO;
@@ -3021,7 +3021,7 @@ static void YRing(NSView *box, BOOL on) {
     });
 }
 - (void)updateSearchPlaceholder {
-    NSString *ph = [NSString stringWithFormat:@"Search %@ or enter website name", SaturnSettings.shared.currentEngineInfo.shortName ?: @"Google"];
+    NSString *ph = [NSString stringWithFormat:@"Search %@ or enter website name", SaturnSettings.shared.currentEngineInfo.shortName ?: @"Mars"];
     self.addressBar.placeholderString = ph;
     ((NSTextFieldCell *)self.addressBar.cell).placeholderAttributedString = [[NSAttributedString alloc] initWithString:ph attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
 }
@@ -4543,7 +4543,7 @@ static void YRing(NSView *box, BOOL on) {
 #pragma mark - Chrome actions
 - (void)handleNewTab:(id)sender {
     NSString *home = SaturnSettings.shared.currentEngineInfo.homeURL;
-    if (!home.length) home = @"https://www.google.com";
+    if (!home.length) home = @"https://mars.yavqo.com";
     [self createNewTabWithURL:[NSURL URLWithString:home]];
 }
 - (void)showAIAssistant:(id)sender {
@@ -4864,7 +4864,7 @@ static void YRing(NSView *box, BOOL on) {
 - (void)goAddress:(id)sender { [self navigateToString:self.addressBar.stringValue]; }
 - (void)newWindow:(id)sender {
     if ([NSApp.delegate respondsToSelector:@selector(createWindowWithURL:)]) {
-        [NSApp.delegate performSelector:@selector(createWindowWithURL:) withObject:[NSURL URLWithString:@"https://www.google.com"]];
+        [NSApp.delegate performSelector:@selector(createWindowWithURL:) withObject:[NSURL URLWithString:SaturnSettings.shared.currentEngineInfo.homeURL.length ? SaturnSettings.shared.currentEngineInfo.homeURL : @"https://mars.yavqo.com"]];
     }
 }
 - (void)star:(id)sender {

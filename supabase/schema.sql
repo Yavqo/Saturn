@@ -7,7 +7,7 @@ create table if not exists public.saturn_settings (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
   device_id text not null,
-  default_search_engine text not null default 'Google',
+  default_search_engine text not null default 'Mars',
   custom_search_template text default '',
   setup_completed boolean default true,
   theme text default 'dark_glass',
