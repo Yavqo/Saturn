@@ -333,45 +333,55 @@ static NSView *HannaAvatar(CGFloat size) {
 #pragma mark - Markdown Formatter
 static NSAttributedString *AttrForMarkdownColored(NSString *markdown, CGFloat fontSize, NSColor *textColor, BOOL light) {
     if (!markdown.length) return [[NSAttributedString alloc] initWithString:@""];
-    NSAttributedString *attr = nil;
-    if (@available(macOS 12.0, *)) {
-        NSError *err = nil;
-        attr = [[NSAttributedString alloc] initWithMarkdownString:markdown options:nil baseURL:nil error:&err];
-        if (err || !attr) attr = nil;
-    }
-    if (!attr) {
-        NSData *data = [markdown dataUsingEncoding:NSUTF8StringEncoding];
-        NSDictionary *opts = @{NSDocumentTypeDocumentAttribute: @"net.daringfireball.markdown", NSCharacterEncodingDocumentAttribute: @(NSUTF8StringEncoding)};
-        attr = [[NSAttributedString alloc] initWithData:data options:opts documentAttributes:nil error:nil];
-    }
-    if (!attr) {
-        attr = [[NSAttributedString alloc] initWithString:markdown attributes:@{
-            NSForegroundColorAttributeName: textColor,
-            NSFontAttributeName: [NSFont systemFontOfSize:fontSize]
-        }];
-    }
-
-    NSMutableAttributedString *out = [[NSMutableAttributedString alloc] initWithAttributedString:attr];
-    NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
-    style.lineSpacing = 3.5;
-    style.paragraphSpacing = 6.0;
-    [out addAttributes:@{
-        NSForegroundColorAttributeName: textColor,
-        NSFontAttributeName: [NSFont systemFontOfSize:fontSize weight:NSFontWeightRegular],
-        NSParagraphStyleAttributeName: style
-    } range:NSMakeRange(0, out.length)];
-
-    // Apply monospace font and accent highlight for inline code and code blocks
-    [out enumerateAttribute:NSFontAttributeName inRange:NSMakeRange(0, out.length) options:0 usingBlock:^(id value, NSRange range, BOOL *stop){
-        (void)stop;
-        NSFont *f = value;
-        if (f && ([[f familyName] containsString:@"Menlo"] || [[f fontName] containsString:@"Mono"] || [[f fontName] containsString:@"Courier"])) {
-            NSFont *mf = [NSFont monospacedSystemFontOfSize:fontSize - 1 weight:NSFontWeightMedium];
-            [out addAttribute:NSFontAttributeName value:mf range:range];
-            [out addAttribute:NSBackgroundColorAttributeName value:(light ? [NSColor colorWithRed:0.945 green:0.957 blue:0.969 alpha:1] : [NSColor colorWithWhite:1 alpha:0.08]) range:range];
-            [out addAttribute:NSForegroundColorAttributeName value:(light ? textColor : [NSColor colorWithRed:0.75 green:0.85 blue:1.0 alpha:1.0]) range:range];
+    // Parse inline markup per line so Foundation cannot collapse block boundaries.
+    NSMutableAttributedString *out = [NSMutableAttributedString new];
+    BOOL fenced = NO;
+    NSArray<NSString *> *lines = [[markdown stringByReplacingOccurrencesOfString:@"\r\n" withString:@"\n"] componentsSeparatedByString:@"\n"];
+    for (NSUInteger index = 0; index < lines.count; index++) {
+        NSString *line = lines[index];
+        NSString *trimmed = [line stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if ([trimmed hasPrefix:@"```"] || [trimmed hasPrefix:@"~~~"]) { fenced = !fenced; continue; }
+        CGFloat size = fontSize;
+        BOOL heading = NO;
+        if (!fenced) {
+            NSUInteger hashes = 0;
+            while (hashes < line.length && [line characterAtIndex:hashes] == '#') hashes++;
+            if (hashes > 0 && hashes <= 6 && hashes < line.length && [line characterAtIndex:hashes] == ' ') {
+                heading = YES; size += hashes == 1 ? 4 : hashes == 2 ? 2 : 1;
+                line = [line substringFromIndex:hashes + 1];
+            } else if ([trimmed hasPrefix:@"- "] || [trimmed hasPrefix:@"* "] || [trimmed hasPrefix:@"+ "]) {
+                line = [@"• " stringByAppendingString:[trimmed substringFromIndex:2]];
+            } else if ([trimmed hasPrefix:@"> "]) {
+                line = [@"│ " stringByAppendingString:[trimmed substringFromIndex:2]];
+            }
         }
-    }];
+        NSAttributedString *parsed = nil;
+        if (!fenced && line.length) {
+            NSAttributedStringMarkdownParsingOptions *options = [NSAttributedStringMarkdownParsingOptions new];
+            options.interpretedSyntax = NSAttributedStringMarkdownInterpretedSyntaxInlineOnlyPreservingWhitespace;
+            parsed = [[NSAttributedString alloc] initWithMarkdownString:line options:options baseURL:nil error:nil];
+        }
+        NSMutableAttributedString *part = [[NSMutableAttributedString alloc] initWithAttributedString:parsed ?: [[NSAttributedString alloc] initWithString:line]];
+        NSMutableParagraphStyle *style = [NSMutableParagraphStyle new];
+        style.lineSpacing = 3.5;
+        style.paragraphSpacing = heading ? 8 : 4;
+        style.lineBreakMode = NSLineBreakByCharWrapping;
+        [part addAttributes:@{NSForegroundColorAttributeName:textColor, NSParagraphStyleAttributeName:style} range:NSMakeRange(0, part.length)];
+        [part enumerateAttributesInRange:NSMakeRange(0, part.length) options:0 usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {
+            NSFont *original = attributes[NSFontAttributeName];
+            NSUInteger intent = [attributes[NSInlinePresentationIntentAttributeName] unsignedIntegerValue];
+            NSFontTraitMask traits = original ? [[NSFontManager sharedFontManager] traitsOfFont:original] : 0;
+            BOOL code = fenced || (intent & NSInlinePresentationIntentCode) || (traits & NSFixedPitchFontMask);
+            BOOL bold = heading || (intent & NSInlinePresentationIntentStronglyEmphasized) || (traits & NSBoldFontMask);
+            BOOL italic = (intent & NSInlinePresentationIntentEmphasized) || (traits & NSItalicFontMask);
+            NSFont *font = code ? [NSFont monospacedSystemFontOfSize:size - 1 weight:NSFontWeightRegular] : [NSFont systemFontOfSize:size weight:bold ? NSFontWeightSemibold : NSFontWeightRegular];
+            if (italic) font = [[NSFontManager sharedFontManager] convertFont:font toHaveTrait:NSItalicFontMask];
+            [part addAttribute:NSFontAttributeName value:font range:range];
+            if (code) [part addAttribute:NSBackgroundColorAttributeName value:light ? Y_soft() : [NSColor colorWithWhite:1 alpha:0.08] range:range];
+        }];
+        [out appendAttributedString:part];
+        if (index + 1 < lines.count) [out appendAttributedString:[[NSAttributedString alloc] initWithString:@"\n" attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:fontSize], NSForegroundColorAttributeName:textColor, NSParagraphStyleAttributeName:style}]];
+    }
     return out;
 }
 
@@ -3911,8 +3921,14 @@ static void YRing(NSView *box, BOOL on) {
     NSView *card = self.taskTimeline;
     for (NSView *v in [card.subviews copy]) [v removeFromSuperview];
     CGFloat width = self.hannaScrollView.contentSize.width - 12;
-    CGFloat goalH = MIN(100, MAX(36, [self.agentGoal boundingRectWithSize:NSMakeSize(width - 32, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:13]}].size.height + 8));
-    CGFloat height = 70 + goalH + self.taskActions.count * 40;
+    CGFloat goalH = MAX(36, ceil([self.agentGoal boundingRectWithSize:NSMakeSize(width - 32, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:13]}].size.height) + 8);
+    NSMutableArray<NSNumber *> *rowHeights = [NSMutableArray array];
+    CGFloat height = 70 + goalH;
+    for (NSDictionary *action in self.taskActions) {
+        NSString *text = [@"Skipped: " stringByAppendingString:action[@"text"] ?: @""];
+        CGFloat rowH = MAX(40, ceil([text boundingRectWithSize:NSMakeSize(width - 58, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:12]}].size.height) + 12);
+        [rowHeights addObject:@(rowH)]; height += rowH;
+    }
     card.frame = NSMakeRect(card.frame.origin.x, card.frame.origin.y, width, height);
     NSTextField *header = [NSTextField labelWithString:[NSString stringWithFormat:@"Task · %@", self.taskState ?: @"Working"]];
     header.font = [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold];
@@ -3921,8 +3937,10 @@ static void YRing(NSView *box, BOOL on) {
     goal.font = [NSFont systemFontOfSize:13]; goal.textColor = Y_muted();
     goal.frame = NSMakeRect(16, height - 42 - goalH, width - 32, goalH); [card addSubview:goal];
     CGFloat y = height - 50 - goalH;
+    NSUInteger rowIndex = 0;
     for (NSDictionary *action in self.taskActions) {
-        y -= 40;
+        CGFloat rowH = rowHeights[rowIndex++].doubleValue;
+        y -= rowH;
         NSString *state = action[@"state"];
         NSString *symbol = [state isEqualToString:@"done"] ? @"checkmark.circle.fill" : [state isEqualToString:@"failed"] ? @"exclamationmark.circle" : [state isEqualToString:@"current"] ? @"arrow.triangle.2.circlepath" : @"circle";
         NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(16, y + 12, 16, 16)];
@@ -3931,7 +3949,7 @@ static void YRing(NSView *box, BOOL on) {
         NSString *prefix = [state isEqualToString:@"current"] ? @"Now: " : [state isEqualToString:@"next"] ? @"Next: " : [state isEqualToString:@"cancelled"] ? @"Skipped: " : @"";
         NSTextField *label = [NSTextField wrappingLabelWithString:[prefix stringByAppendingString:action[@"text"]]];
         label.font = [NSFont systemFontOfSize:12]; label.textColor = Y_ink();
-        label.frame = NSMakeRect(42, y + 2, width - 58, 36); [card addSubview:label];
+        label.frame = NSMakeRect(42, y + 4, width - 58, rowH - 8); [card addSubview:label];
     }
     HannaChatDocView *doc = (HannaChatDocView *)self.hannaScrollView.documentView;
     [doc relayout];
@@ -4870,14 +4888,21 @@ static void YRing(NSView *box, BOOL on) {
     tv.backgroundColor = [NSColor clearColor];
     tv.drawsBackground = NO;
     tv.textContainerInset = NSMakeSize(0, 0);
-    tv.verticallyResizable = YES;
+    tv.verticallyResizable = NO;
     tv.horizontallyResizable = NO;
-    tv.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    [tv.textContainer setWidthTracksTextView:YES];
+    tv.autoresizingMask = NSViewNotSizable;
+    [tv.textContainer setWidthTracksTextView:NO];
     [tv.textContainer setContainerSize:NSMakeSize(textW, CGFLOAT_MAX)];
     tv.textContainer.lineFragmentPadding = 0;
     tv.linkTextAttributes = @{NSForegroundColorAttributeName: isHanna ? Y_blue() : [NSColor whiteColor], NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle)};
     tv.textStorage.attributedString = attr;
+    // Measure using the same text container that renders the message.
+    [tv.layoutManager ensureLayoutForTextContainer:tv.textContainer];
+    textH = MAX(20, ceil(NSMaxY([tv.layoutManager usedRectForTextContainer:tv.textContainer])) + 4);
+    tv.frame = NSMakeRect(paddingX, paddingY, textW, textH);
+    bubbleH = MAX(isHanna ? 24 : 40, textH + paddingY * 2);
+    [bubble setFrameSize:NSMakeSize(bubbleW, bubbleH)];
+    bubble.layer.masksToBounds = YES;
     [bubble addSubview:tv];
 
     return bubble;
