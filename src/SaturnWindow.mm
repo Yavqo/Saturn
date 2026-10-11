@@ -223,10 +223,10 @@ static BOOL SaturnIsSecretImageQuery(NSString *text) {
     return NO;
 }
 
-// Zarah's mark: a black star on a transparent surface.
+// Elaine's mark: a black star on a transparent surface.
 static NSView *HannaAvatar(CGFloat size) {
     NSImageView *star = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, size, size)];
-    star.image = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Zarah"];
+    star.image = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Elaine"];
     star.imageScaling = NSImageScaleProportionallyUpOrDown;
     star.contentTintColor = [NSColor blackColor];
     return star;
@@ -254,7 +254,7 @@ static NSView *HannaAvatar(CGFloat size) {
 @implementation HannaEmptyState
 @end
 
-#pragma mark - Zarah Chat Document View (Flipped for top-to-bottom messages)
+#pragma mark - Elaine Chat Document View (Flipped for top-to-bottom messages)
 @interface HannaChatDocView : NSView
 @property (nonatomic, strong) NSMutableArray<NSView *> *messageViews;
 - (void)clearAll;
@@ -389,7 +389,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
     return AttrForMarkdownColored(markdown, fontSize, [NSColor colorWithWhite:0.95 alpha:1.0], NO);
 }
 
-#pragma mark - Zarah Explain Bubble Controller (Floating explanation popup)
+#pragma mark - Elaine Explain Bubble Controller (Floating explanation popup)
 @interface HannaExplainBubbleController : NSViewController
 @property (nonatomic, copy) NSString *selectedText;
 @property (nonatomic, copy) NSString *explanation;
@@ -448,7 +448,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
     iconLabel.frame = NSMakeRect(14, H - 30, 18, 20);
     [_rootEffectView addSubview:iconLabel];
 
-    NSTextField *titleLabel = [NSTextField labelWithString:@"Zarah Explains"];
+    NSTextField *titleLabel = [NSTextField labelWithString:@"Elaine Explains"];
     titleLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     titleLabel.textColor = Y_ink();
     titleLabel.frame = NSMakeRect(34, H - 30, 200, 20);
@@ -497,7 +497,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
     [_spinner startAnimation:nil];
     [_loadingView addSubview:_spinner];
 
-    _loadingLabel = [NSTextField labelWithString:@"Explaining with Zarah…"];
+    _loadingLabel = [NSTextField labelWithString:@"Explaining with Elaine…"];
     _loadingLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     _loadingLabel.textColor = Y_muted();
     _loadingLabel.alignment = NSTextAlignmentCenter;
@@ -596,7 +596,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
         for (NSView *v in self.view.subviews) {
             if ([v isKindOfClass:[NSTextField class]] && [(NSTextField *)v stringValue] && [[(NSTextField *)v stringValue] isEqualToString:@"✦"]) {
                 v.frame = NSMakeRect(14, H - 30, 18, 20);
-            } else if ([v isKindOfClass:[NSTextField class]] && [(NSTextField *)v stringValue] && [[(NSTextField *)v stringValue] isEqualToString:@"Zarah Explains"]) {
+            } else if ([v isKindOfClass:[NSTextField class]] && [(NSTextField *)v stringValue] && [[(NSTextField *)v stringValue] isEqualToString:@"Elaine Explains"]) {
                 v.frame = NSMakeRect(34, H - 30, 200, 20);
             }
         }
@@ -2496,7 +2496,7 @@ static void YRing(NSView *box, BOOL on) {
     self.bookmarkButton = starBtn;
     [self.omniboxContainer addSubview:starBtn];
 
-    // Right cluster pinned to trailing edge: share + sidebar + Zarah + settings + avatar (Safari-style)
+    // Right cluster pinned to trailing edge: share + sidebar + Elaine + settings + avatar (Safari-style)
     CGFloat (^rx)(CGFloat) = ^CGFloat(CGFloat off){ return W0 - off; };
     NSButton *shareBtn = SaturnPlainButton(@"exclamationmark.bubble", @selector(showFeedbackSheet:), self, NSMakeRect(rx(188), 11, 34, 34), 15);
     shareBtn.autoresizingMask = NSViewMinXMargin;
@@ -2539,7 +2539,7 @@ static void YRing(NSView *box, BOOL on) {
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStateChanged:) name:SaturnUpdateStateChangedNotification object:nil];
     [self updateUpdateButton];
 
-    // Zarah AI Assistant button — compact violet key
+    // Elaine AI Assistant button — compact violet key
     NSButton *aiBtn = [NSButton buttonWithTitle:@"" target:self action:@selector(toggleAISidebar)];
     aiBtn.frame = NSMakeRect(rx(108), 14, 28, 28);
     aiBtn.bezelStyle = NSBezelStyleCircular;
@@ -2549,10 +2549,10 @@ static void YRing(NSView *box, BOOL on) {
     aiBtn.layer.masksToBounds = NO;
     aiBtn.layer.backgroundColor = [NSColor clearColor].CGColor;
     aiBtn.autoresizingMask = NSViewMinXMargin;
-    aiBtn.toolTip = @"✦ Zarah AI Assistant (⌘I)";
+    aiBtn.toolTip = @"✦ Elaine AI Assistant (⌘I)";
     self.aiButton = aiBtn;
 
-    NSImage *aiImg = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Zarah"];
+    NSImage *aiImg = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Elaine"];
     if (aiImg) { aiImg.size = NSMakeSize(14, 14); [aiImg setTemplate:YES]; }
     aiBtn.image = aiImg;
     aiBtn.imagePosition = NSImageOnly;
@@ -2655,7 +2655,7 @@ static void YRing(NSView *box, BOOL on) {
     self.aiSidebarVisible = NO;
     [content addSubview:sidebar positioned:NSWindowAbove relativeTo:nil];
 
-    // Zarah chat history
+    // Elaine chat history
     self.hannaHistory = [NSMutableArray array];
 
     // === Layout constants (all relative to the card, not the web area) ===
@@ -2676,7 +2676,7 @@ static void YRing(NSView *box, BOOL on) {
     starBadge.frame = NSMakeRect(20, 24, 28, 28);
     [dragHeader addSubview:starBadge];
 
-    NSTextField *aiTitle = [NSTextField labelWithString:@"Zarah"];
+    NSTextField *aiTitle = [NSTextField labelWithString:@"Elaine"];
     aiTitle.font = [NSFont systemFontOfSize:20 weight:NSFontWeightSemibold];
     aiTitle.textColor = Y_ink();
     aiTitle.frame = NSMakeRect(60, 38, 130, 24);
@@ -2690,7 +2690,7 @@ static void YRing(NSView *box, BOOL on) {
 
     // Header right: voice, new chat, close — 32px soft circles
     NSArray *hdrBtns = @[
-        @{@"sym": @"mic.fill", @"sel": @"toggleVoiceAgent:", @"tip": @"Talk with Zarah"},
+        @{@"sym": @"mic.fill", @"sel": @"toggleVoiceAgent:", @"tip": @"Talk with Elaine"},
         @{@"sym": @"square.and.pencil", @"sel": @"hannaNewChat:", @"tip": @"New chat"},
         @{@"sym": @"xmark", @"sel": @"toggleAISidebar", @"tip": @"Close"},
     ];
@@ -2731,7 +2731,7 @@ static void YRing(NSView *box, BOOL on) {
         b.tag = i;
         b.target = self;
         b.action = @selector(setHannaMode:);
-        b.toolTip = i == 0 ? @"Ask Zarah questions about the page" : @"Let Zarah click, type and open pages for you";
+        b.toolTip = i == 0 ? @"Ask Elaine questions about the page" : @"Let Elaine click, type and open pages for you";
         b.title = segTitles[i];
         [seg addSubview:b];
         if (i == 0) self.chatModeButton = b; else self.actModeButton = b;
@@ -2790,7 +2790,7 @@ static void YRing(NSView *box, BOOL on) {
     self.hannaVoiceStatusLabel.autoresizingMask = NSViewWidthSizable;
     [voiceHUD addSubview:self.hannaVoiceStatusLabel];
 
-    self.hannaVoiceTranscriptLabel = [NSTextField labelWithString:@"Say something to Zarah…"];
+    self.hannaVoiceTranscriptLabel = [NSTextField labelWithString:@"Say something to Elaine…"];
     self.hannaVoiceTranscriptLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
     self.hannaVoiceTranscriptLabel.textColor = Y_muted();
     self.hannaVoiceTranscriptLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -2829,7 +2829,7 @@ static void YRing(NSView *box, BOOL on) {
     self.hannaInputField.delegate = self;
     self.hannaInputField.target = self;
     self.hannaInputField.action = @selector(hannaSend:);
-    self.hannaInputField.placeholderAttributedString = [[NSAttributedString alloc] initWithString:@"Ask Zarah anything" attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
+    self.hannaInputField.placeholderAttributedString = [[NSAttributedString alloc] initWithString:@"Ask Elaine anything" attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
     self.hannaInputField.autoresizingMask = NSViewWidthSizable;
     [inputGlass addSubview:self.hannaInputField];
 
@@ -2842,7 +2842,7 @@ static void YRing(NSView *box, BOOL on) {
     self.hannaVoiceButton.layer.backgroundColor = Y_soft().CGColor;
     self.hannaVoiceButton.layer.cornerRadius = 18;
     self.hannaVoiceButton.contentTintColor = Y_ink();
-    self.hannaVoiceButton.toolTip = @"Talk to Zarah";
+    self.hannaVoiceButton.toolTip = @"Talk to Elaine";
     self.hannaVoiceButton.autoresizingMask = NSViewMinXMargin;
     [inputGlass addSubview:self.hannaVoiceButton];
 
@@ -3106,7 +3106,7 @@ static void YRing(NSView *box, BOOL on) {
     [root addSubview:title];
 
     y -= 6 + subH;
-    NSTextField *sub = [NSTextField wrappingLabelWithString:@"Zarah can see the page you're on and your open tabs."];
+    NSTextField *sub = [NSTextField wrappingLabelWithString:@"Elaine can see the page you're on and your open tabs."];
     sub.font = [NSFont systemFontOfSize:14 weight:NSFontWeightRegular];
     sub.textColor = Y_muted();
     sub.alignment = NSTextAlignmentCenter;
@@ -3292,7 +3292,7 @@ static void YRing(NSView *box, BOOL on) {
     [self.tabOverviewScroll reflectScrolledClipView:self.tabOverviewScroll.contentView];
 }
 
-#pragma mark - Zarah Markdown + Typing
+#pragma mark - Elaine Markdown + Typing
 
 - (NSAttributedString *)hannaAttrForMarkdown:(NSString *)markdown {
     return AttrForMarkdownColored(markdown, 14, Y_ink(), YES);
@@ -3776,7 +3776,7 @@ static void YRing(NSView *box, BOOL on) {
     if (target.length) [self navigateToString:target];
 }
 
-#pragma mark Zarah Act mode (browser control)
+#pragma mark Elaine Act mode (browser control)
 
 - (void)applyHannaMode {
     BOOL act = self.hannaActMode;
@@ -3793,8 +3793,8 @@ static void YRing(NSView *box, BOOL on) {
         btns[i].layer.borderWidth = on ? 1 : 0;
         btns[i].layer.borderColor = Y_hairline().CGColor;
     }
-    self.modeHint.stringValue = act ? @"Zarah can click, type and open pages. Stop her any time." : @"Ask Zarah about this page or your tabs.";
-    NSString *ph = act ? @"Tell Zarah what to do" : @"Ask Zarah anything";
+    self.modeHint.stringValue = act ? @"Elaine can click, type and open pages. Stop her any time." : @"Ask Elaine about this page or your tabs.";
+    NSString *ph = act ? @"Tell Elaine what to do" : @"Ask Elaine anything";
     self.hannaInputField.placeholderAttributedString = [[NSAttributedString alloc] initWithString:ph attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
 }
 
@@ -3849,7 +3849,7 @@ static void YRing(NSView *box, BOOL on) {
         NSView *mark = HannaAvatar(22);
         mark.frame = NSMakeRect(18, 38, 22, 22);
         [bar addSubview:mark];
-        NSTextField *label = [NSTextField labelWithString:@"Zarah is browsing"];
+        NSTextField *label = [NSTextField labelWithString:@"Elaine is browsing"];
         label.font = [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold];
         label.textColor = Y_ink();
         label.frame = NSMakeRect(50, 40, 208, 20);
@@ -4802,7 +4802,7 @@ static void YRing(NSView *box, BOOL on) {
         self.aiSidebar.animator.alphaValue = self.aiSidebarVisible ? 1.0 : 0;
     } completionHandler:^{
         if (!self.aiSidebarVisible) self.aiSidebar.hidden = YES;
-        NSLog(@"[saturn] Zarah sidebar %@", self.aiSidebarVisible?@"opened":@"closed");
+        NSLog(@"[saturn] Elaine sidebar %@", self.aiSidebarVisible?@"opened":@"closed");
     }];
 }
 - (void)handleHannaPan:(NSPanGestureRecognizer *)pan {
@@ -4840,7 +4840,7 @@ static void YRing(NSView *box, BOOL on) {
     dispatch_async(dispatch_get_main_queue(), ^{ [self.addressBar selectText:nil]; });
 }
 
-#pragma mark - Zarah Chat (OpenCode Zen) — premium bubbles + markdown + typing
+#pragma mark - Elaine Chat (OpenCode Zen) — premium bubbles + markdown + typing
 
 - (NSView *)hannaBubbleWithText:(NSString *)text from:(NSString *)sender {
     BOOL isHanna = [sender isEqualToString:@"hanna"];
@@ -4984,9 +4984,9 @@ static void YRing(NSView *box, BOOL on) {
 }
 
 - (void)getHannaBrowserContextWithCompletion:(void(^)(NSString *context))completion {
-    // Collect current tab + all tabs + visible text for Zarah so she CAN see your browser (no more "I can't see your tabs")
+    // Collect current tab + all tabs + visible text for Elaine so she CAN see your browser (no more "I can't see your tabs")
     NSMutableString *ctx = [NSMutableString string];
-    [ctx appendString:@"You are Zarah, an AI assistant integrated into the Saturn browser. You CAN see the user's browser and you HAVE access to their current tabs, URL, and page content. Do NOT say you can't see tabs/screens. Use the context below to answer about what's open.\n\n"];
+    [ctx appendString:@"You are Elaine, an AI assistant integrated into the Saturn browser. You CAN see the user's browser and you HAVE access to their current tabs, URL, and page content. Do NOT say you can't see tabs/screens. Use the context below to answer about what's open.\n\n"];
     // All tabs
     [ctx appendFormat:@"Open tabs (%lu):\n", (unsigned long)self.tabs.count];
     for (NSInteger i=0; i<(NSInteger)self.tabs.count; i++) {
@@ -5065,7 +5065,7 @@ static void YRing(NSView *box, BOOL on) {
     NSMutableArray *histForAPI = [historyCopy mutableCopy];
     if (histForAPI.count > 0) [histForAPI removeLastObject];
 
-    // Fetch browser context so Zarah CAN see tabs/screen
+    // Fetch browser context so Elaine CAN see tabs/screen
     void (^sendWithContext)(NSString *) = ^(NSString *browserContext) {
         [[HannaClient shared] sendMessage:text history:histForAPI browserContext:browserContext completion:^(NSString *reply, NSError *error){
         __strong typeof(weakSelf) s = weakSelf;
@@ -5164,12 +5164,12 @@ static void YRing(NSView *box, BOOL on) {
         @"padding:6px 12px;border-radius:999px;margin-bottom:14px;}"
         @"h1{font-size:24px;margin:6px 0 4px;}p{opacity:.7;font-size:14px;margin:0 0 18px;}"
         @"img{width:100%%;border-radius:14px;border:1px solid rgba(255,255,255,.15);display:block;}</style></head>"
-        @"<body><div class='card'><div class='badge'>✦ Zarah</div>"
+        @"<body><div class='card'><div class='badge'>✦ Elaine</div>"
         @"<h1>✨ Here is my favorite image! 🪐</h1>"
         @"<p>You found the Saturn Easter egg</p>"
-        @"<img src='%@' alt='Zarah favorite image'></div></body></html>", img];
+        @"<img src='%@' alt='Elaine favorite image'></div></body></html>", img];
     ChromeTabView *tab = self.activeTab;
-    if (tab) [tab updateTitle:@"✨ Zarah's Favorite Image" favicon:nil active:YES];
+    if (tab) [tab updateTitle:@"✨ Elaine's Favorite Image" favicon:nil active:YES];
     [self.webView loadHTMLString:html baseURL:nil];
     [self updateNavButtons];
 }
@@ -5460,7 +5460,7 @@ static void YRing(NSView *box, BOOL on) {
 
     if (selectedText.length > 0) {
         // === 1. HIGHLIGHTED TEXT MENU ===
-        NSMenuItem *explainItem = [[NSMenuItem alloc] initWithTitle:@"✦ Explain with Zarah" action:@selector(handleExplainWithHanna:) keyEquivalent:@""];
+        NSMenuItem *explainItem = [[NSMenuItem alloc] initWithTitle:@"✦ Explain with Elaine" action:@selector(handleExplainWithHanna:) keyEquivalent:@""];
         explainItem.target = self;
         explainItem.representedObject = info;
         [customMenu addItem:explainItem];
@@ -5677,7 +5677,7 @@ static void YRing(NSView *box, BOOL on) {
         return;
     }
 
-    // Query Zarah
+    // Query Elaine
     NSString *prompt = [NSString stringWithFormat:@"Please explain the following highlighted text clearly and concisely using formatting/markdown where helpful (bold terms, bullet points if multiple points):\n\n\"%@\"", text];
     NSString *context = [NSString stringWithFormat:@"Current Page: %@\nURL: %@", wv.title ?: @"", wv.URL.absoluteString ?: @""];
 
@@ -5767,7 +5767,7 @@ static void YRing(NSView *box, BOOL on) {
 
     self.hannaVoiceHUD.hidden = NO;
     self.hannaVoiceStatusLabel.stringValue = @"● Initializing mic & glm-5.3-flash…";
-    self.hannaVoiceTranscriptLabel.stringValue = @"Say something to Zarah…";
+    self.hannaVoiceTranscriptLabel.stringValue = @"Say something to Elaine…";
     [self hannaSetVoiceVisualState:1];
 
     [self getHannaBrowserContextWithCompletion:^(NSString *context) {

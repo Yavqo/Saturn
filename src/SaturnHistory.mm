@@ -328,7 +328,7 @@ static NSString *SaturnShortcutsPageHTML(void) {
             @[@"Bookmark this page", @"⌘ D"], @[@"Print", @"⌘ P"]]],
         @[@"Windows and Saturn", @[
             @[@"New window", @"⌘ N"], @[@"New private window", @"⇧ ⌘ N"], @[@"Close window", @"⇧ ⌘ W"],
-            @[@"Ask Zarah", @"⌘ I"], @[@"History", @"⌘ Y"], @[@"Downloads", @"⇧ ⌘ J"],
+            @[@"Ask Elaine", @"⌘ I"], @[@"History", @"⌘ Y"], @[@"Downloads", @"⇧ ⌘ J"],
             @[@"Show or hide favorites bar", @"⇧ ⌘ B"], @[@"Settings", @"⌘ ,"], @[@"This page", @"⌘ /"]]],
     ];
     NSMutableString *body = [NSMutableString string];

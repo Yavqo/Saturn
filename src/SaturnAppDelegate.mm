@@ -251,7 +251,7 @@
     [viewMenu addItemWithTitle:@"Back" action:@selector(backView:) keyEquivalent:@"["];
     [viewMenu addItemWithTitle:@"Forward" action:@selector(forwardView:) keyEquivalent:@"]"];
     [viewMenu addItem:[NSMenuItem separatorItem]];
-    [viewMenu addItemWithTitle:@"Ask Zarah" action:@selector(toggleHanna:) keyEquivalent:@"i"];
+    [viewMenu addItemWithTitle:@"Ask Elaine" action:@selector(toggleHanna:) keyEquivalent:@"i"];
     NSMenuItem *fs = [viewMenu addItemWithTitle:@"Enter Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
     fs.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagControl;
     [viewMenu addItem:[NSMenuItem separatorItem]];
