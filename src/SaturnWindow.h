@@ -23,7 +23,7 @@
 
 #import "SaturnVoiceAgent.h"
 
-@interface SaturnWindow : NSWindow <WKNavigationDelegate, WKUIDelegate, NSTextFieldDelegate, WKScriptMessageHandler, SaturnVoiceAgentDelegate>
+@interface SaturnWindow : NSWindow <WKNavigationDelegate, WKUIDelegate, NSTextFieldDelegate, NSSearchFieldDelegate, WKScriptMessageHandler, SaturnVoiceAgentDelegate>
 @property (nonatomic, strong) NSTextField *addressBar;
 @property (nonatomic, strong) NSView *omniboxContainer;
 @property (nonatomic, strong) NSButton *backBtn;
@@ -84,6 +84,10 @@
 - (void)offerDefaultBrowser;
 - (void)presentPendingCrashReport;
 - (void)agentStarted;
+- (void)agentSetGoal:(NSString *)goal;
+- (void)agentPlanActions:(NSArray<NSString *> *)actions;
+- (void)agentWillPerformAction:(NSString *)action;
+- (void)agentDidPerformAction:(NSString *)action success:(BOOL)success;
 - (void)agentStep:(NSString *)text;
 - (void)agentFinished:(NSString *)message isError:(BOOL)isError;
 - (void)agentConfirmWithTitle:(NSString *)title detail:(NSString *)detail completion:(void (^)(BOOL allow))completion;

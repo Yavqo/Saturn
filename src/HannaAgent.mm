@@ -415,6 +415,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     _steps = 0;
     NSInteger run = ++_runID;
     _messages = [NSMutableArray arrayWithArray:@[@{@"role": @"system", @"content": [self systemPrompt]}, @{@"role": @"user", @"content": task}]];
+    [_window agentSetGoal:task];
     [_window agentStarted];
     [self requestNext:run];
 }
@@ -464,8 +465,16 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
             [s finish:final.length ? final : @"Done." error:NO];
             return;
         }
+        NSMutableArray *actions = [NSMutableArray array];
+        for (NSDictionary *call in calls) [actions addObject:[s actionLabel:call[@"function"][@"name"]]];
+        [s->_window agentPlanActions:actions];
         [s runCalls:calls index:0 run:run];
     }];
+}
+
+- (NSString *)actionLabel:(NSString *)name {
+    NSDictionary *labels = @{@"get_page": @"Read the current page", @"click": @"Click a page element", @"type": @"Fill in a field", @"select_option": @"Choose an option", @"scroll": @"Scroll the page", @"navigate": @"Open a page", @"new_tab": @"Open a new tab", @"search": @"Search the web", @"list_tabs": @"Read open tabs", @"go_back": @"Go back one page", @"press_key": @"Press a key", @"switch_tab": @"Switch tabs", @"close_tab": @"Close a tab", @"wait": @"Wait for the page"};
+    return labels[name] ?: @"Perform browser action";
 }
 
 - (void)runCalls:(NSArray *)calls index:(NSInteger)i run:(NSInteger)run {
@@ -478,10 +487,12 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     id parsed = argData ? [NSJSONSerialization JSONObjectWithData:argData options:0 error:nil] : nil;
     NSDictionary *args = [parsed isKindOfClass:[NSDictionary class]] ? parsed : @{};
     __weak HannaAgent *weak = self;
+    [_window agentWillPerformAction:[self actionLabel:name]];
     [self runTool:name args:args done:^(NSString *result, NSString *stepLine) {
         HannaAgent *s = weak;
         if (!s || run != s->_runID) return;
-        if (stepLine.length) [s->_window agentStep:stepLine];
+        BOOL success = stepLine.length && ![stepLine hasPrefix:@"Stopped:"] && ![stepLine hasPrefix:@"Could not"] && ![stepLine hasPrefix:@"You declined"];
+        [s->_window agentDidPerformAction:stepLine.length ? stepLine : (result ?: @"Action failed") success:success];
         NSString *text = result.length > kMaxToolResultChars ? [[result substringToIndex:kMaxToolResultChars] stringByAppendingString:@"\n…(truncated)"] : result;
         [s->_messages addObject:@{@"role": @"tool", @"tool_call_id": callID, @"content": text ?: @""}];
         [s runCalls:calls index:i + 1 run:run];
