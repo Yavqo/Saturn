@@ -2,6 +2,7 @@
 #import "Supabase/SupabaseClient.h"
 #import "AuthWindow.h"
 #import "Settings.h"
+#import "SettingsWindow.h"
 #import "SaturnShield.h"
 #import "HannaClient.h"
 #import "SaturnDownloads.h"
@@ -2478,7 +2479,7 @@ static void YRing(NSView *box, BOOL on) {
     self.bookmarkButton = starBtn;
     [self.omniboxContainer addSubview:starBtn];
 
-    // Right cluster pinned to trailing edge: share + sidebar + Zarah + avatar (Safari-style)
+    // Right cluster pinned to trailing edge: share + sidebar + Zarah + settings + avatar (Safari-style)
     CGFloat (^rx)(CGFloat) = ^CGFloat(CGFloat off){ return W0 - off; };
     NSButton *shareBtn = SaturnPlainButton(@"exclamationmark.bubble", @selector(showFeedbackSheet:), self, NSMakeRect(rx(188), 11, 34, 34), 15);
     shareBtn.autoresizingMask = NSViewMinXMargin;
@@ -2541,6 +2542,12 @@ static void YRing(NSView *box, BOOL on) {
     aiBtn.contentTintColor = [NSColor whiteColor];
     aiBtn.hidden = NO; // Re-enabled fresh AI sidebar
     [toolbar addSubview:aiBtn];
+
+    NSButton *settingsBtn = SaturnPlainButton(@"gearshape", @selector(showSettings:), self, NSMakeRect(rx(76), 14, 28, 28), 16);
+    settingsBtn.autoresizingMask = NSViewMinXMargin;
+    settingsBtn.toolTip = @"Settings (⌘,)";
+    [settingsBtn setAccessibilityLabel:@"Settings"];
+    [toolbar addSubview:settingsBtn];
 
     // Avatar — live from Supabase profiles.avatar_url
     NSButton *avatarBtn = [NSButton buttonWithTitle:@"" target:self action:@selector(showAuth:)];
@@ -2920,6 +2927,11 @@ static void YRing(NSView *box, BOOL on) {
 - (void)bookmarkChipTapped:(NSButton *)sender {
     NSString *urlStr = sender.identifier;
     if (urlStr.length) [self navigateToString:urlStr];
+}
+
+- (void)showSettings:(id)sender {
+    (void)sender;
+    [[SettingsWindow shared] showForWindow:self];
 }
 
 - (void)showAuth:(id)sender {
