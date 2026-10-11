@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 # Release builds pass -DSATURN_VERSION=x.y.z (see scripts/release.sh); it becomes the app version the updater compares.
-set(SATURN_VERSION "0.3.4" CACHE STRING "Saturn version")
+set(SATURN_VERSION "0.3.5" CACHE STRING "Saturn version")
 project(SaturnBrowser VERSION ${SATURN_VERSION} LANGUAGES CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -37,6 +37,7 @@ add_executable(saturn ${SATURN_SOURCES})
 
 # Frameworks: Cocoa + WebKit + AVFoundation + Speech
 target_link_libraries(saturn PRIVATE
+    "-framework CoreServices"
     "-framework Cocoa"
     "-framework WebKit"
     "-framework UniformTypeIdentifiers"
@@ -76,7 +77,7 @@ set_target_properties(saturn PROPERTIES
 
 # CLI wrapper: also build non-bundle binary for `build/saturn` terminal launch
 add_executable(saturn-cli ${SATURN_SOURCES})
-target_link_libraries(saturn-cli PRIVATE "-framework Cocoa" "-framework WebKit" "-framework UniformTypeIdentifiers" "-framework QuartzCore" "-framework AVFoundation" "-framework Speech" sqlite3)
+target_link_libraries(saturn-cli PRIVATE "-framework CoreServices" "-framework Cocoa" "-framework WebKit" "-framework UniformTypeIdentifiers" "-framework QuartzCore" "-framework AVFoundation" "-framework Speech" sqlite3)
 target_include_directories(saturn-cli PRIVATE src)
 target_compile_options(saturn-cli PRIVATE -Wall -Wextra -Wno-deprecated-declarations -O2 -fobjc-arc)
 target_compile_definitions(saturn-cli PRIVATE SATURN_CLI=1)

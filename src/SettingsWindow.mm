@@ -251,7 +251,22 @@ static NSTextField *SettingsLabel(NSString *text, CGFloat size, NSFontWeight wei
 
 - (void)makeDefaultBrowser:(id)sender {
     (void)sender;
-    [SaturnDefaultBrowser makeDefaultWithCompletion:^(BOOL now, NSError *error) { (void)now; (void)error; [self refreshDefaultBrowserRow]; }];
+    _browserButton.enabled = NO;
+    _browserStatus.stringValue = @"Confirm the change in the macOS dialog…";
+    [SaturnDefaultBrowser makeDefaultWithCompletion:^(BOOL now, NSError *error) {
+        self.browserButton.enabled = YES;
+        [self refreshDefaultBrowserRow];
+        if (!now) {
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Choose Saturn as your default browser";
+            alert.informativeText = [NSString stringWithFormat:@"%@\n\nIn System Settings, open Desktop & Dock and choose Saturn under Default web browser. If Saturn is missing, move Saturn.app to Applications and open it once.", error.localizedDescription ?: @"The change was not confirmed."];
+            [alert addButtonWithTitle:@"Open System Settings"];
+            [alert addButtonWithTitle:@"Cancel"];
+            [alert beginSheetModalForWindow:self completionHandler:^(NSModalResponse response) {
+                if (response == NSAlertFirstButtonReturn) [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.Desktop-Settings.extension"]];
+            }];
+        }
+    }];
 }
 
 #pragma mark Search engine

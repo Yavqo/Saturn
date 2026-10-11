@@ -71,6 +71,7 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 @property (nonatomic, strong) NSTextField *modeHint;
 @property (nonatomic, strong) NSView *agentBar;
 @property (nonatomic, strong) NSView *agentGlow;
+@property (nonatomic, strong) NSTextField *agentStatusLabel;
 - (void)layoutAgentOverlay;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *promptQueue;
 @property (nonatomic, strong) SaturnPromptCard *promptCard;
@@ -209,20 +210,13 @@ static BOOL SaturnIsSecretImageQuery(NSString *text) {
     return NO;
 }
 
-// Zarah's mark: white disc, blue ring, blue sparkles.
+// Zarah's mark: a black star on a transparent surface.
 static NSView *HannaAvatar(CGFloat size) {
-    NSView *av = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, size, size)];
-    av.wantsLayer = YES;
-    av.layer.cornerRadius = size / 2;
-    av.layer.backgroundColor = [NSColor whiteColor].CGColor;
-    av.layer.borderColor = Y_blue().CGColor;
-    av.layer.borderWidth = MAX(1.5, size / 14);
-    CGFloat inset = size * 0.26;
-    NSImageView *iv = [[NSImageView alloc] initWithFrame:NSMakeRect(inset, inset, size - 2 * inset, size - 2 * inset)];
-    iv.image = [NSImage imageWithSystemSymbolName:@"sparkles" accessibilityDescription:@"Zarah"];
-    iv.contentTintColor = Y_blue();
-    [av addSubview:iv];
-    return av;
+    NSImageView *star = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, size, size)];
+    star.image = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Zarah"];
+    star.imageScaling = NSImageScaleProportionallyUpOrDown;
+    star.contentTintColor = [NSColor blackColor];
+    return star;
 }
 
 // Pill suggestion button (icon + label) with hover state. The prompt lives in `identifier`.
@@ -1168,7 +1162,7 @@ static YRenameSheet *sActiveRenameSheet;
     _panel.contentView = root;
 
     NSTextField *title = [NSTextField labelWithString:@"Rename group"];
-    title.font = [NSFont systemFontOfSize:24 weight:NSFontWeightMedium];
+    title.font = [NSFont systemFontOfSize:22 weight:NSFontWeightSemibold];
     title.textColor = Y_ink();
     title.frame = NSMakeRect(28, H - 28 - 30, W - 56, 30);
     [root addSubview:title];
@@ -1998,7 +1992,7 @@ static void YRing(NSView *box, BOOL on) {
 
     CGFloat y = H - pad;
     NSTextField *title = [NSTextField labelWithString:_crash ? @"Saturn quit unexpectedly" : @"Send feedback"];
-    title.font = [NSFont systemFontOfSize:24 weight:NSFontWeightMedium];
+    title.font = [NSFont systemFontOfSize:22 weight:NSFontWeightSemibold];
     title.textColor = Y_ink();
     title.frame = NSMakeRect(pad, y - 30, cw, 30);
     [root addSubview:title];
@@ -2530,16 +2524,16 @@ static void YRing(NSView *box, BOOL on) {
     aiBtn.wantsLayer = YES;
     aiBtn.layer.cornerRadius = 14;
     aiBtn.layer.masksToBounds = NO;
-    aiBtn.layer.backgroundColor = Y_blue().CGColor;
+    aiBtn.layer.backgroundColor = [NSColor clearColor].CGColor;
     aiBtn.autoresizingMask = NSViewMinXMargin;
     aiBtn.toolTip = @"✦ Zarah AI Assistant (⌘I)";
     self.aiButton = aiBtn;
 
-    NSImage *aiImg = [NSImage imageWithSystemSymbolName:@"sparkles" accessibilityDescription:@"Zarah"];
+    NSImage *aiImg = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Zarah"];
     if (aiImg) { aiImg.size = NSMakeSize(14, 14); [aiImg setTemplate:YES]; }
     aiBtn.image = aiImg;
     aiBtn.imagePosition = NSImageOnly;
-    aiBtn.contentTintColor = [NSColor whiteColor];
+    aiBtn.contentTintColor = [NSColor blackColor];
     aiBtn.hidden = NO; // Re-enabled fresh AI sidebar
     [toolbar addSubview:aiBtn];
 
@@ -2614,12 +2608,12 @@ static void YRing(NSView *box, BOOL on) {
     sidebar.state = NSVisualEffectStateActive;
     sidebar.appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua];
     sidebar.wantsLayer = YES;
-    sidebar.layer.cornerRadius = 24;
+    sidebar.layer.cornerRadius = 18;
     sidebar.layer.masksToBounds = NO;
     sidebar.layer.borderColor = Y_hairline().CGColor;
     sidebar.layer.borderWidth = 1;
     sidebar.layer.shadowColor = [NSColor blackColor].CGColor;
-    sidebar.layer.shadowOpacity = 0.20;
+    sidebar.layer.shadowOpacity = 0.10;
     sidebar.layer.shadowRadius = 10;
     sidebar.layer.shadowOffset = NSMakeSize(0, -8);
 
@@ -2628,7 +2622,7 @@ static void YRing(NSView *box, BOOL on) {
     tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     tint.wantsLayer = YES;
     tint.layer.backgroundColor = [NSColor whiteColor].CGColor;
-    tint.layer.cornerRadius = 24;
+    tint.layer.cornerRadius = 18;
     tint.layer.masksToBounds = YES;
     [sidebar addSubview:tint positioned:NSWindowBelow relativeTo:nil];
     sidebar.autoresizingMask = NSViewMinXMargin | NSViewHeightSizable;
@@ -2642,7 +2636,7 @@ static void YRing(NSView *box, BOOL on) {
     self.hannaHistory = [NSMutableArray array];
 
     // === Layout constants (all relative to the card, not the web area) ===
-    CGFloat headerH = 64;
+    CGFloat headerH = 76;
     CGFloat inputH = 52;
     CGFloat inputY = 16;
     CGFloat scrollBottom = inputY + inputH + 12;
@@ -2656,19 +2650,19 @@ static void YRing(NSView *box, BOOL on) {
     [sidebar addSubview:dragHeader];
 
     NSView *starBadge = HannaAvatar(36);
-    starBadge.frame = NSMakeRect(18, 14, 36, 36);
+    starBadge.frame = NSMakeRect(20, 24, 28, 28);
     [dragHeader addSubview:starBadge];
 
     NSTextField *aiTitle = [NSTextField labelWithString:@"Zarah"];
-    aiTitle.font = [NSFont systemFontOfSize:16 weight:NSFontWeightBold];
+    aiTitle.font = [NSFont systemFontOfSize:20 weight:NSFontWeightSemibold];
     aiTitle.textColor = Y_ink();
-    aiTitle.frame = NSMakeRect(62, 31, 150, 20);
+    aiTitle.frame = NSMakeRect(60, 38, 130, 24);
     [dragHeader addSubview:aiTitle];
 
-    NSTextField *aiSub = [NSTextField labelWithString:@"Vercel AI Gateway · mimo-v2.6-flash"];
+    NSTextField *aiSub = [NSTextField labelWithString:@"Your browsing companion"];
     aiSub.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
     aiSub.textColor = Y_muted();
-    aiSub.frame = NSMakeRect(62, 14, 170, 16);
+    aiSub.frame = NSMakeRect(60, 20, 170, 16);
     [dragHeader addSubview:aiSub];
 
     // Header right: voice, new chat, close — 32px soft circles
@@ -2681,12 +2675,12 @@ static void YRing(NSView *box, BOOL on) {
     for (NSInteger i = (NSInteger)hdrBtns.count - 1; i >= 0; i--) {
         NSDictionary *d = hdrBtns[i];
         NSButton *b = [NSButton buttonWithImage:[NSImage imageWithSystemSymbolName:d[@"sym"] accessibilityDescription:d[@"tip"]] target:self action:NSSelectorFromString(d[@"sel"])];
-        b.frame = NSMakeRect(hbx, 16, 32, 32);
+        b.frame = NSMakeRect(hbx, 26, 32, 32);
         b.bezelStyle = NSBezelStyleCircular;
         b.bordered = NO;
         b.imageScaling = NSImageScaleProportionallyDown;
         b.wantsLayer = YES;
-        b.layer.backgroundColor = Y_soft().CGColor;
+        b.layer.backgroundColor = [NSColor clearColor].CGColor;
         b.layer.cornerRadius = 16;
         b.contentTintColor = Y_ink();
         b.toolTip = d[@"tip"];
@@ -2705,7 +2699,7 @@ static void YRing(NSView *box, BOOL on) {
     seg.layer.cornerRadius = 16;
     seg.layer.backgroundColor = Y_soft().CGColor;
     [modeBar addSubview:seg];
-    NSArray *segTitles = @[@"Chat", @"Act"];
+    NSArray *segTitles = @[@"Ask", @"Browse"];
     for (NSInteger i = 0; i < 2; i++) {
         NSButton *b = [[NSButton alloc] initWithFrame:NSMakeRect(3 + i * 72, 3, 72, 26)];
         b.bordered = NO;
@@ -2795,7 +2789,7 @@ static void YRing(NSView *box, BOOL on) {
     // === BOTTOM: pill input ===
     NSView *inputGlass = [[NSView alloc] initWithFrame:NSMakeRect(16, inputY, sidebarW - 32, inputH)];
     inputGlass.wantsLayer = YES;
-    inputGlass.layer.cornerRadius = inputH / 2;
+    inputGlass.layer.cornerRadius = 14;
     inputGlass.layer.backgroundColor = [NSColor whiteColor].CGColor;
     inputGlass.layer.borderColor = Y_border().CGColor;
     inputGlass.layer.borderWidth = 1.0;
@@ -2835,7 +2829,7 @@ static void YRing(NSView *box, BOOL on) {
     self.hannaSendButton.bezelStyle = NSBezelStyleCircular;
     self.hannaSendButton.bordered = NO;
     self.hannaSendButton.wantsLayer = YES;
-    self.hannaSendButton.layer.backgroundColor = Y_blue().CGColor;
+    self.hannaSendButton.layer.backgroundColor = [NSColor blackColor].CGColor;
     self.hannaSendButton.layer.cornerRadius = 18;
     NSImageView *arrow = [[NSImageView alloc] initWithFrame:NSMakeRect(9, 9, 18, 18)];
     arrow.image = [NSImage imageWithSystemSymbolName:@"arrow.up" accessibilityDescription:@"Send"];
@@ -3062,7 +3056,7 @@ static void YRing(NSView *box, BOOL on) {
         @[@"square.on.square", @"What tabs do I have open?"],
         @[@"lightbulb", @"Explain it simply"],
     ];
-    CGFloat avatar = 64, pillH = 48, gap = 10;
+    CGFloat avatar = 40, pillH = 44, gap = 8;
     CGFloat topPad = 36, titleH = 34, subH = 40;
     CGFloat total = topPad + avatar + 20 + titleH + 6 + subH + 28 + prompts.count * pillH + (prompts.count - 1) * gap;
 
@@ -3078,8 +3072,8 @@ static void YRing(NSView *box, BOOL on) {
     [root addSubview:av];
 
     y -= 20 + titleH;
-    NSTextField *title = [NSTextField labelWithString:@"Ask Zarah anything"];
-    title.font = [NSFont systemFontOfSize:24 weight:NSFontWeightMedium];
+    NSTextField *title = [NSTextField labelWithString:@"What would you like to do?"];
+    title.font = [NSFont systemFontOfSize:22 weight:NSFontWeightSemibold];
     title.textColor = Y_ink();
     title.alignment = NSTextAlignmentCenter;
     title.frame = NSMakeRect(0, y, width, titleH);
@@ -3108,7 +3102,7 @@ static void YRing(NSView *box, BOOL on) {
         pill.layer.backgroundColor = [NSColor whiteColor].CGColor;
         pill.layer.borderColor = Y_hairline().CGColor;
         pill.layer.borderWidth = 1;
-        pill.layer.cornerRadius = pillH / 2;
+        pill.layer.cornerRadius = 12;
         pill.autoresizingMask = NSViewWidthSizable;
 
         NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(18, (pillH - 18) / 2, 18, 18)];
@@ -3668,41 +3662,47 @@ static void YRing(NSView *box, BOOL on) {
     self.agentGlow.frame = NSMakeRect(0, 0, W, webH);
     CGFloat sidebar = self.aiSidebarVisible ? 392 : 0;
     CGFloat bw = self.agentBar.frame.size.width;
-    self.agentBar.frame = NSMakeRect(MAX(12, (W - sidebar - bw) / 2), 24, bw, 48);
+    self.agentBar.frame = NSMakeRect(MAX(12, (W - sidebar - bw) / 2), 20, bw, 76);
 }
 
 - (void)showAgentOverlay {
     if (!self.agentGlow) {
         YPassThroughView *glow = [[YPassThroughView alloc] initWithFrame:NSZeroRect];
         glow.wantsLayer = YES;
-        glow.layer.borderWidth = 3;
-        glow.layer.borderColor = [Y_blue() colorWithAlphaComponent:0.7].CGColor;
+        glow.layer.borderWidth = 2;
+        glow.layer.cornerRadius = 10;
+        glow.layer.borderColor = [Y_blue() colorWithAlphaComponent:0.45].CGColor;
         self.agentGlow = glow;
 
-        NSView *bar = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 300, 48)];
+        NSView *bar = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 360, 76)];
         bar.wantsLayer = YES;
-        bar.layer.cornerRadius = 24;
-        bar.layer.backgroundColor = Y_ink().CGColor;
-        for (int i = 0; i < 3; i++) {
-            NSView *dot = [[NSView alloc] initWithFrame:NSMakeRect(20 + i * 12, 20, 8, 8)];
-            dot.wantsLayer = YES;
-            dot.layer.cornerRadius = 4;
-            dot.layer.backgroundColor = [NSColor whiteColor].CGColor;
-            CABasicAnimation *a = [CABasicAnimation animationWithKeyPath:@"opacity"];
-            a.fromValue = @0.25; a.toValue = @1; a.duration = 0.6; a.autoreverses = YES; a.repeatCount = HUGE_VALF;
-            a.beginTime = CACurrentMediaTime() + i * 0.18;
-            [dot.layer addAnimation:a forKey:@"pulse"];
-            [bar addSubview:dot];
-        }
-        NSTextField *label = [NSTextField labelWithString:@"Zarah is working"];
-        label.font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
-        label.textColor = [NSColor whiteColor];
-        label.frame = NSMakeRect(66, 14, 150, 20);
+        bar.layer.cornerRadius = 18;
+        bar.layer.backgroundColor = [NSColor whiteColor].CGColor;
+        bar.layer.borderWidth = 1;
+        bar.layer.borderColor = Y_border().CGColor;
+        bar.layer.shadowColor = [NSColor blackColor].CGColor;
+        bar.layer.shadowOpacity = 0.16;
+        bar.layer.shadowRadius = 16;
+        bar.layer.shadowOffset = NSMakeSize(0, -4);
+        NSView *mark = HannaAvatar(22);
+        mark.frame = NSMakeRect(18, 38, 22, 22);
+        [bar addSubview:mark];
+        NSTextField *label = [NSTextField labelWithString:@"Zarah is browsing"];
+        label.font = [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold];
+        label.textColor = Y_ink();
+        label.frame = NSMakeRect(50, 40, 208, 20);
         [bar addSubview:label];
-        YSheetButton *stop = [[YSheetButton alloc] initWithTitle:@"Stop" primary:NO frame:NSMakeRect(300 - 8 - 76, 8, 76, 32)];
+        self.agentStatusLabel = [NSTextField labelWithString:@"Preparing your task…"];
+        self.agentStatusLabel.font = [NSFont systemFontOfSize:12];
+        self.agentStatusLabel.textColor = Y_muted();
+        self.agentStatusLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+        self.agentStatusLabel.frame = NSMakeRect(18, 16, 240, 17);
+        [bar addSubview:self.agentStatusLabel];
+        YSheetButton *stop = [[YSheetButton alloc] initWithTitle:@"Stop" primary:NO frame:NSMakeRect(270, 20, 76, 36)];
         stop.target = self;
         stop.action = @selector(stopHannaAgent);
         stop.keyEquivalent = @"\033";
+        stop.toolTip = @"Stop browser control (Escape)";
         [bar addSubview:stop];
         self.agentBar = bar;
     }
@@ -3711,6 +3711,8 @@ static void YRing(NSView *box, BOOL on) {
     self.agentGlow.hidden = NO;
     self.agentBar.hidden = NO;
     [self layoutAgentOverlay];
+    self.agentStatusLabel.stringValue = @"Preparing your task…";
+    if (NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion) return;
     CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"opacity"];
     pulse.fromValue = @0.45; pulse.toValue = @1; pulse.duration = 1.1; pulse.autoreverses = YES; pulse.repeatCount = HUGE_VALF;
     pulse.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
@@ -3726,14 +3728,15 @@ static void YRing(NSView *box, BOOL on) {
 // One line in the chat for each thing Zarah did.
 - (void)agentStep:(NSString *)text {
     dispatch_async(dispatch_get_main_queue(), ^{
+        self.agentStatusLabel.stringValue = text;
         NSScrollView *scroll = self.hannaScrollView;
         HannaChatDocView *doc = (HannaChatDocView *)scroll.documentView;
         if (![doc isKindOfClass:[HannaChatDocView class]]) return;
         for (NSView *v in [doc.messageViews copy]) if ([v isKindOfClass:[HannaEmptyState class]]) [doc removeMessageView:v];
-        NSView *row = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 100, 22)];
+        NSView *row = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 100, 32)];
         row.identifier = @"fullWidth";
         row.autoresizingMask = NSViewWidthSizable;
-        NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(8, 4, 14, 14)];
+        NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(8, 9, 14, 14)];
         icon.image = Y_symbol(@"checkmark.circle.fill", 12, NSFontWeightMedium);
         icon.contentTintColor = Y_blue();
         [row addSubview:icon];
@@ -3741,7 +3744,7 @@ static void YRing(NSView *box, BOOL on) {
         l.font = [NSFont systemFontOfSize:12.5];
         l.textColor = Y_muted();
         l.lineBreakMode = NSLineBreakByTruncatingTail;
-        l.frame = NSMakeRect(30, 3, 280, 16);
+        l.frame = NSMakeRect(30, 8, 280, 16);
         l.autoresizingMask = NSViewWidthSizable;
         [row addSubview:l];
         [doc addMessageView:row];
@@ -4574,10 +4577,11 @@ static void YRing(NSView *box, BOOL on) {
         self.aiSidebar.hidden = NO;
         self.aiSidebar.alphaValue = 0;
     }
-    // Highlight AI button when open
-    self.aiButton.layer.backgroundColor = (self.aiSidebarVisible ? Y_blueHover() : Y_blue()).CGColor;
+    // Keep the star transparent in both open and closed states.
+    self.aiButton.layer.backgroundColor = [NSColor clearColor].CGColor;
+    self.aiButton.contentTintColor = [NSColor blackColor];
     [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx){
-        ctx.duration = 0.28;
+        ctx.duration = NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion ? 0 : 0.28;
         self.aiSidebar.animator.frame = target;
         self.aiSidebar.animator.alphaValue = self.aiSidebarVisible ? 1.0 : 0;
     } completionHandler:^{
