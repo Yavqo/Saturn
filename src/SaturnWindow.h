@@ -84,6 +84,8 @@
 - (void)offerDefaultBrowser;
 - (void)presentPendingCrashReport;
 - (void)agentStarted;
+- (void)agentShowCursorAtX:(CGFloat)x y:(CGFloat)y viewportWidth:(CGFloat)width viewportHeight:(CGFloat)height action:(NSString *)action;
+- (void)agentActivity:(NSString *)activity;
 - (void)agentSetGoal:(NSString *)goal;
 - (void)agentPlanActions:(NSArray<NSString *> *)actions;
 - (void)agentWillPerformAction:(NSString *)action;

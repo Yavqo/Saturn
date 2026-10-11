@@ -71,6 +71,8 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 @property (nonatomic, strong) NSTextField *modeHint;
 @property (nonatomic, strong) NSView *agentBar;
 @property (nonatomic, strong) NSView *agentGlow;
+@property (nonatomic, strong) NSView *agentCursor;
+@property (nonatomic, strong) NSTextField *agentCursorLabel;
 @property (nonatomic, strong) NSTextField *agentStatusLabel;
 @property (nonatomic, copy) NSString *agentGoal;
 @property (nonatomic, strong) NSView *taskTimeline;
@@ -3827,6 +3829,7 @@ static void YRing(NSView *box, BOOL on) {
 
 - (void)layoutAgentOverlay {
     if (!self.agentGlow) return;
+    self.agentCursor.hidden = YES;
     CGFloat W = self.contentView.bounds.size.width, H = self.contentView.bounds.size.height;
     CGFloat webH = H - [self currentChromeH];
     self.agentGlow.frame = NSMakeRect(0, 0, W, webH);
@@ -3887,6 +3890,44 @@ static void YRing(NSView *box, BOOL on) {
     pulse.fromValue = @0.45; pulse.toValue = @1; pulse.duration = 1.1; pulse.autoreverses = YES; pulse.repeatCount = HUGE_VALF;
     pulse.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
     [self.agentGlow.layer addAnimation:pulse forKey:@"pulse"];
+}
+
+- (void)agentActivity:(NSString *)activity {
+    self.agentStatusLabel.stringValue = activity;
+    self.agentCursorLabel.stringValue = activity;
+}
+- (void)agentShowCursorAtX:(CGFloat)x y:(CGFloat)y viewportWidth:(CGFloat)width viewportHeight:(CGFloat)height action:(NSString *)action {
+    if (!self.hannaAgent.running || width <= 0 || height <= 0) return;
+    if (!self.agentCursor) {
+        YPassThroughView *cursor = [[YPassThroughView alloc] initWithFrame:NSMakeRect(0, 0, 210, 52)];
+        cursor.wantsLayer = YES;
+        NSImageView *arrow = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 26, 24, 26)];
+        arrow.image = NSCursor.arrowCursor.image;
+        arrow.imageScaling = NSImageScaleProportionallyUpOrDown;
+        [cursor addSubview:arrow];
+        NSTextField *label = [NSTextField labelWithString:@""];
+        label.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+        label.textColor = NSColor.whiteColor;
+        label.drawsBackground = YES; label.backgroundColor = Y_blue();
+        label.wantsLayer = YES; label.layer.cornerRadius = 6; label.layer.masksToBounds = YES;
+        label.frame = NSMakeRect(18, 0, 192, 24);
+        label.lineBreakMode = NSLineBreakByTruncatingTail;
+        self.agentCursorLabel = label;
+        [cursor addSubview:label]; self.agentCursor = cursor;
+    }
+    NSRect page = [self.contentView convertRect:self.webView.bounds fromView:self.webView];
+    CGFloat px = page.origin.x + x / width * page.size.width;
+    CGFloat py = page.origin.y + (1 - y / height) * page.size.height;
+    NSRect target = NSMakeRect(MAX(0, MIN(page.size.width - 210, px)), MAX(0, py - 52), 210, 52);
+    BOOL wasHidden = self.agentCursor.hidden || !self.agentCursor.superview;
+    self.agentCursorLabel.stringValue = [@"Elaine · " stringByAppendingString:action];
+    [self.contentView addSubview:self.agentCursor positioned:NSWindowAbove relativeTo:nil];
+    self.agentCursor.hidden = NO;
+    if (wasHidden) self.agentCursor.frame = target;
+    else [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
+        ctx.duration = NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion ? 0 : 0.22;
+        self.agentCursor.animator.frame = target;
+    } completionHandler:nil];
 }
 
 - (void)agentStarted {
@@ -3975,6 +4016,7 @@ static void YRing(NSView *box, BOOL on) {
     [self.agentGlow.layer removeAnimationForKey:@"pulse"];
     self.agentGlow.hidden = YES;
     self.agentBar.hidden = YES;
+    self.agentCursor.hidden = YES;
     self.hannaSendButton.enabled = YES;
     self.hannaInputField.enabled = YES;
     [self makeFirstResponder:self.hannaInputField];
@@ -5360,6 +5402,7 @@ static void YRing(NSView *box, BOOL on) {
 }
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     NSLog(@"[saturn] didFinish %@ title=%@", webView.URL, webView.title);
+    if (webView == self.webView) self.agentCursor.hidden = YES;
     [self setLoading:NO forWebView:webView];
     if (!self.isPrivate) [[SaturnHistory shared] recordURL:webView.URL title:webView.title];
     NSInteger idx = [self indexForWebView:webView];

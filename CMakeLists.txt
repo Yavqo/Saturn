@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 # Release builds pass -DSATURN_VERSION=x.y.z (see scripts/release.sh); it becomes the app version the updater compares.
-set(SATURN_VERSION "0.3.9" CACHE STRING "Saturn version")
+set(SATURN_VERSION "0.4.0" CACHE STRING "Saturn version")
 project(SaturnBrowser VERSION ${SATURN_VERSION} LANGUAGES CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD 20)

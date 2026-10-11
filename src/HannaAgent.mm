@@ -62,17 +62,27 @@ static const char *const kClickJS = R"JS((function(A){
  return JSON.stringify({ok:true})
 })(__ARGS__))JS";
 
-static const char *const kTypeJS = R"JS((function(A){
+static const char *const kTypeJS = R"JS((async function(A){
+ if(window.__saturnAgentRunID===undefined)window.__saturnAgentRunID=A.runID;
  var el=document.querySelector('[data-saturn-id="'+A.id+'"]');
  if(!el)return JSON.stringify({ok:false,error:'Element '+A.id+' was not found. Call get_page again.'});
  el.scrollIntoView({block:'center'});hl(el);el.focus();
  var tag=el.tagName;
- if(el.isContentEditable){document.execCommand('selectAll');document.execCommand('insertText',false,A.text)}
+ if(el.isContentEditable){document.execCommand('selectAll');document.execCommand('insertText',false,'');var parts=Array.from(A.text),size=Math.max(1,Math.ceil(parts.length/90));for(var j=0;j<parts.length;j+=size){if(window.__saturnAgentStopped||window.__saturnAgentRunID!==A.runID)return JSON.stringify({ok:false,error:'Typing stopped by the user.'});if(!el.isConnected)return JSON.stringify({ok:false,error:'The field changed while typing.'});document.execCommand('insertText',false,parts.slice(j,j+size).join(''));await new Promise(resolve=>setTimeout(resolve,35));}}
  else if(tag==='INPUT'||tag==='TEXTAREA'){
   var proto=tag==='INPUT'?HTMLInputElement.prototype:HTMLTextAreaElement.prototype;
-  Object.getOwnPropertyDescriptor(proto,'value').set.call(el,A.text);
-  el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
+  var setter=Object.getOwnPropertyDescriptor(proto,'value').set;
+  setter.call(el,'');el.dispatchEvent(new Event('input',{bubbles:true}));
+  var chars=Array.from(A.text),chunk=Math.max(1,Math.ceil(chars.length/90));
+  for(var i=0;i<chars.length;i+=chunk){
+   if(window.__saturnAgentStopped||window.__saturnAgentRunID!==A.runID)return JSON.stringify({ok:false,error:'Typing stopped by the user.'});
+   if(!el.isConnected)return JSON.stringify({ok:false,error:'The field changed while typing.'});
+   setter.call(el,chars.slice(0,i+chunk).join(''));el.dispatchEvent(new Event('input',{bubbles:true}));
+   await new Promise(resolve=>setTimeout(resolve,35));
+  }
+  el.dispatchEvent(new Event('change',{bubbles:true}))}
  else return JSON.stringify({ok:false,error:'That element is not a text field.'});
+ if(window.__saturnAgentStopped||window.__saturnAgentRunID!==A.runID)return JSON.stringify({ok:false,error:"Stopped before submission."});
  if(A.submit){
   var k={key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true};
   var kd=new KeyboardEvent('keydown',k);el.dispatchEvent(kd);
@@ -222,7 +232,7 @@ static NSDictionary *Tool(NSString *name, NSString *desc, NSDictionary *props, N
 - (void)evaluate:(NSString *)js completion:(void (^)(NSDictionary *result))completion {
     WKWebView *wv = [self webView];
     if (!wv) { completion(@{@"ok": @NO, @"error": @"There is no open page."}); return; }
-    [wv evaluateJavaScript:js completionHandler:^(id r, NSError *e) {
+    [wv callAsyncJavaScript:[@"return await " stringByAppendingString:js] arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:^(id r, NSError *e) {
         NSDictionary *d = nil;
         if ([r isKindOfClass:[NSString class]]) d = [NSJSONSerialization JSONObjectWithData:[r dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
         if (![d isKindOfClass:[NSDictionary class]]) d = @{@"ok": @NO, @"error": e ? @"I could not run that on this page (it may still be loading, or it is a protected page)." : @"No result from the page."};
@@ -232,6 +242,7 @@ static NSDictionary *Tool(NSString *name, NSString *desc, NSDictionary *props, N
 
 // After an action, give the page a moment, then wait until it has stopped loading.
 - (void)settle:(void (^)(void))done {
+    [_window agentActivity:@"Waiting for the page…"];
     CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
     __block NSInteger quiet = 0;
     __weak HannaAgent *weak = self;
@@ -352,7 +363,9 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
             NSString *label = info[@"label"];
             NSString *quoted = label.length ? [NSString stringWithFormat:@"“%@”", label] : [NSString stringWithFormat:@"element %@", idNum];
 
+            NSInteger actionRun = s->_runID;
             void (^act)(void) = ^{
+                if (!s.running || actionRun != s->_runID) return;
                 if ([name isEqualToString:@"click"]) {
                     [s evaluate:Script(kClickJS, idArg, YES) completion:^(NSDictionary *r) {
                         if (![r[@"ok"] boolValue]) { done(r[@"error"] ?: @"Click failed.", nil); return; }
@@ -361,7 +374,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
                 } else if ([name isEqualToString:@"type"]) {
                     NSString *text = [args[@"text"] isKindOfClass:[NSString class]] ? args[@"text"] : @"";
                     BOOL submit = [args[@"submit"] boolValue];
-                    [s evaluate:Script(kTypeJS, @{@"id": idNum, @"text": text, @"submit": @(submit)}, YES) completion:^(NSDictionary *r) {
+                    [s evaluate:Script(kTypeJS, @{@"id": idNum, @"text": text, @"submit": @(submit), @"runID": @(actionRun)}, YES) completion:^(NSDictionary *r) {
                         if (![r[@"ok"] boolValue]) { done(r[@"error"] ?: @"Typing failed.", nil); return; }
                         NSString *shown = text.length > 40 ? [[text substringToIndex:40] stringByAppendingString:@"…"] : text;
                         NSString *step = [NSString stringWithFormat:@"Typed “%@” into %@", shown, quoted];
@@ -482,12 +495,14 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     NSInteger run = ++_runID;
     _messages = [NSMutableArray arrayWithArray:@[@{@"role": @"system", @"content": [self systemPrompt]}, @{@"role": @"user", @"content": task}]];
     [_window agentSetGoal:task];
+    [[self webView] evaluateJavaScript:[NSString stringWithFormat:@"window.__saturnAgentStopped=false;window.__saturnAgentRunID=%ld", (long)run] completionHandler:nil];
     [_window agentStarted];
     [self requestNext:run];
 }
 
 - (void)stop {
     if (!_running) return;
+    [[self webView] evaluateJavaScript:@"window.__saturnAgentStopped=true" completionHandler:nil];
     _runID++;   // any reply still in flight is ignored
     [self finish:@"Stopped. I did not do anything further." error:NO];
 }
@@ -511,6 +526,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
 - (void)requestNext:(NSInteger)run {
     if (run != _runID) return;
     if (++_steps > kMaxSteps) { [self finish:@"I stopped after 25 steps without finishing. Tell me what to do next, or try a smaller task." error:NO]; return; }
+    [_window agentActivity:@"Choosing the next step…"];
     [self trimOldSnapshots];
     __weak HannaAgent *weak = self;
     [[HannaClient shared] chatWithMessages:_messages tools:[self toolSchemas] completion:^(NSDictionary *message, NSError *error) {
@@ -543,6 +559,20 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     return labels[name] ?: @"Perform browser action";
 }
 
+- (void)prepareCursorForTool:(NSString *)name args:(NSDictionary *)args run:(NSInteger)run completion:(void (^)(void))completion {
+    NSString *script = [NSString stringWithFormat:@"(function(A){let el=A.id?document.querySelector('[data-saturn-id=\"'+A.id+'\"]'):null;if(!el&&A.kind==='press_key')el=document.activeElement;if(el)el.scrollIntoView({block:'center',inline:'center'});let r=el?el.getBoundingClientRect():null;return JSON.stringify({ok:true,x:r?r.left+r.width/2:innerWidth*0.5,y:r?r.top+r.height/2:innerHeight*0.35,width:innerWidth,height:innerHeight})})(%@)", JSONString(@{@"id":args[@"id"] ?: @0, @"kind":name})];
+    __weak HannaAgent *weak = self;
+    [self evaluate:script completion:^(NSDictionary *point) {
+        HannaAgent *s = weak; if (!s || run != s->_runID) return;
+        [s->_window agentShowCursorAtX:[point[@"x"] doubleValue] y:[point[@"y"] doubleValue] viewportWidth:[point[@"width"] doubleValue] viewportHeight:[point[@"height"] doubleValue] action:[s actionLabel:name]];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 350 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            if (run != s->_runID) return;
+            [s->_window agentActivity:[s actionLabel:name]];
+            completion();
+        });
+    }];
+}
+
 - (void)runCalls:(NSArray *)calls index:(NSInteger)i run:(NSInteger)run {
     if (run != _runID) return;
     if (i >= (NSInteger)calls.count) { [self requestNext:run]; return; }
@@ -554,6 +584,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     NSDictionary *args = [parsed isKindOfClass:[NSDictionary class]] ? parsed : @{};
     __weak HannaAgent *weak = self;
     [_window agentWillPerformAction:[self actionLabel:name]];
+    [self prepareCursorForTool:name args:args run:run completion:^{
     [self runTool:name args:args done:^(NSString *result, NSString *stepLine) {
         HannaAgent *s = weak;
         if (!s || run != s->_runID) return;
@@ -562,6 +593,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
         NSString *text = result.length > kMaxToolResultChars ? [[result substringToIndex:kMaxToolResultChars] stringByAppendingString:@"\n…(truncated)"] : result;
         [s->_messages addObject:@{@"role": @"tool", @"tool_call_id": callID, @"content": text ?: @""}];
         [s runCalls:calls index:i + 1 run:run];
+    }];
     }];
 }
 
