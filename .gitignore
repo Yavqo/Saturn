@@ -11,3 +11,6 @@ build/
 
 # Local release builds
 build-release/
+
+# Local Android packages
+dist-android/
