@@ -98,3 +98,17 @@ Saturn updates itself from GitHub releases of `Yavqo/Saturn`. A few seconds afte
    (without `--publish` it only builds `dist/Saturn-0.2.0.zip`).
 
 Notes: tags with a suffix (`v0.2.0-beta1`) are marked pre-release and are **not** offered as updates. The updater verifies the download's SHA-256, its code signature and that it is a newer Saturn build before installing. Builds are currently ad-hoc signed (no Apple Developer ID), which is fine for in-app updates; first installs of a downloaded copy need right-click ▸ Open once.
+
+## Elaine research tools
+
+In Elaine's **Browse** mode, you can ask her to:
+- Find text on the page and jump to a specific match.
+- Read your selected text.
+- Extract links, optionally filtered by topic.
+- Read table rows and columns.
+- Inspect page metadata and headings.
+- List image descriptions, addresses and dimensions.
+- Inspect form labels, required fields and dropdown options without reading entered values.
+- Read up to six loaded tabs for comparisons without switching tabs.
+
+Examples: “Compare the prices in tabs 1 and 2,” “Extract this table,” “Find the second mention of delivery,” or “List links about refunds.” These tools read the loaded document; image inspection returns descriptions rather than visual analysis, and results have size limits. Unloaded tabs are reported as unavailable.

@@ -3081,6 +3081,9 @@ static void YRing(NSView *box, BOOL on) {
         @[@"square.on.square", @"What tabs do I have open?"],
         @[@"lightbulb", @"Explain it simply"],
     ];
+    if (self.hannaActMode) {
+        prompts = @[prompts[0], prompts[1], @[@"tablecells", @"Extract tables from this page"], @[@"text.cursor", @"Read my selected text"]];
+    }
     CGFloat avatar = 40, pillH = 44, gap = 8;
     CGFloat topPad = 36, titleH = 34, subH = 40;
     CGFloat total = topPad + avatar + 20 + titleH + 6 + subH + 28 + prompts.count * pillH + (prompts.count - 1) * gap;
@@ -3802,6 +3805,11 @@ static void YRing(NSView *box, BOOL on) {
     if (self.hannaAgent.running) { NSBeep(); return; }
     self.hannaActMode = sender.tag == 1;
     [self applyHannaMode];
+    HannaChatDocView *doc = (HannaChatDocView *)self.hannaScrollView.documentView;
+    for (NSView *view in [doc.messageViews copy]) if ([view isKindOfClass:HannaEmptyState.class]) {
+        [doc removeMessageView:view];
+        [doc addMessageView:[self hannaEmptyStateWithWidth:self.hannaScrollView.contentSize.width - 12]];
+    }
 }
 
 - (void)hannaSendAgentTask:(NSString *)text {
