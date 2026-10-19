@@ -9,11 +9,11 @@
     return s;
 }
 
-static NSString *const kHannaGatewayURL = @"https://ai-gateway.vercel.sh/v1/chat/completions";
-static NSString *const kHannaModel = @"xiaomi/mimo-v2.6-flash";
-static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
+static NSString *const kHannaGatewayURL = @"https://openrouter.ai/api/v1/chat/completions";
+static NSString *const kHannaModel = @"minimax/minimax-m3.1-flash:free";
+static NSString *const kHannaKeyName = @"OPENROUTER_API_KEY";
 
-// Vercel AI Gateway key: environment, then .env (project folder or app support), then UserDefaults.
+// OpenRouter key: environment, then .env (project folder or app support), then UserDefaults.
 + (NSString *)personaPrompt {
     return @"You are Elaine, a precise and friendly AI assistant by Yavqo. You are powered by Yavqo's Sunlight.\n"
     "Answer directly. Ask a clarifying question when a request is ambiguous. Format longer answers so they are quick to scan: short paragraphs, bullet points, and bold key terms.\n"
@@ -47,7 +47,7 @@ static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
             if (v.length) return v;
         }
     }
-    return [[NSUserDefaults standardUserDefaults] stringForKey:@"saturn.ai_gateway_api_key"];
+    return [[NSUserDefaults standardUserDefaults] stringForKey:@"saturn.openrouter_api_key"];
 }
 
 - (BOOL)isConfigured {
@@ -61,7 +61,7 @@ static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
 - (void)sendMessage:(NSString *)userText history:(NSArray<NSDictionary*> *)history browserContext:(NSString *)context completion:(void(^)(NSString *, NSError *))completion {
     NSString *key = [self gatewayKey];
     if (!key.length) {
-        NSError *e = [NSError errorWithDomain:@"Elaine" code:401 userInfo:@{NSLocalizedDescriptionKey: @"Missing AI Gateway key. Add AI_GATEWAY_API_KEY to the .env file in the Saturn folder, then relaunch."}];
+        NSError *e = [NSError errorWithDomain:@"Elaine" code:401 userInfo:@{NSLocalizedDescriptionKey: @"Missing OpenRouter key. Add OPENROUTER_API_KEY to the .env file in the Saturn folder, then relaunch."}];
         dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(nil, e); });
         return;
     }
@@ -117,10 +117,10 @@ static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
         NSDictionary *json = nil;
         if (data) json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
         if (code < 200 || code >= 300) {
-            NSString *msg = json[@"error"][@"message"] ?: json[@"message"] ?: [NSString stringWithFormat:@"AI Gateway error %ld", (long)code];
+            NSString *msg = json[@"error"][@"message"] ?: json[@"message"] ?: [NSString stringWithFormat:@"OpenRouter error %ld", (long)code];
             NSError *e = [NSError errorWithDomain:@"Elaine" code:code userInfo:@{NSLocalizedDescriptionKey: msg, @"response": json ?: @{}}];
             dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(nil, e); });
-            NSLog(@"[hanna] AI Gateway error %ld %@", (long)code, msg);
+            NSLog(@"[hanna] OpenRouter error %ld %@", (long)code, msg);
             return;
         }
 
@@ -132,7 +132,7 @@ static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
         }
 
         if (!reply.length) {
-            reply = json[@"error"][@"message"] ?: @"(No reply returned from the AI Gateway)";
+            reply = json[@"error"][@"message"] ?: @"(No reply returned from OpenRouter)";
         }
 
         dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(reply, nil); });
@@ -143,7 +143,7 @@ static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
 - (void)chatWithMessages:(NSArray<NSDictionary *> *)messages tools:(NSArray<NSDictionary *> *)tools completion:(void (^)(NSDictionary *, NSError *))completion {
     NSString *key = [self gatewayKey];
     if (!key.length) {
-        NSError *e = [NSError errorWithDomain:@"Elaine" code:401 userInfo:@{NSLocalizedDescriptionKey: @"Missing AI Gateway key. Add AI_GATEWAY_API_KEY to the .env file in the Saturn folder, then relaunch."}];
+        NSError *e = [NSError errorWithDomain:@"Elaine" code:401 userInfo:@{NSLocalizedDescriptionKey: @"Missing OpenRouter key. Add OPENROUTER_API_KEY to the .env file in the Saturn folder, then relaunch."}];
         dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, e); });
         return;
     }
@@ -163,12 +163,12 @@ static NSString *const kHannaKeyName = @"AI_GATEWAY_API_KEY";
             id j = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
             NSDictionary *root = [j isKindOfClass:[NSDictionary class]] ? j : nil;
             if (code < 200 || code >= 300) {
-                NSString *text = root[@"error"][@"message"] ?: [NSString stringWithFormat:@"AI Gateway error %ld", (long)code];
+                NSString *text = root[@"error"][@"message"] ?: [NSString stringWithFormat:@"OpenRouter error %ld", (long)code];
                 outErr = [NSError errorWithDomain:@"Elaine" code:code userInfo:@{NSLocalizedDescriptionKey: text}];
             } else if ([root[@"choices"] isKindOfClass:[NSArray class]] && [root[@"choices"] count]) {
                 msg = root[@"choices"][0][@"message"];
             } else {
-                outErr = [NSError errorWithDomain:@"Elaine" code:500 userInfo:@{NSLocalizedDescriptionKey: @"The AI Gateway returned no reply."}];
+                outErr = [NSError errorWithDomain:@"Elaine" code:500 userInfo:@{NSLocalizedDescriptionKey: @"OpenRouter returned no reply."}];
             }
         }
         dispatch_async(dispatch_get_main_queue(), ^{ completion(msg, outErr); });
