@@ -4,7 +4,7 @@
 @interface HannaClient : NSObject
 + (instancetype)shared;
 @property (nonatomic, readonly) BOOL isConfigured;
-// Elaine's identity, voice and company facts. Prepended to every system prompt (chat, Act mode, voice).
+// Hanna's identity, voice and company facts. Prepended to every system prompt (chat, Act mode, voice).
 + (NSString *)personaPrompt;
 - (void)sendMessage:(NSString *)userText
             history:(NSArray<NSDictionary*> *)history // array of {role, content}

@@ -502,7 +502,7 @@ static CGPathRef SU_checkPath(CGFloat s) {
     SetupMarkView *m = [[SetupMarkView alloc] initWithFrame:NSMakeRect((kSetupW - mark) / 2, kPageH - 40 - mark, mark, mark)];
     [pv addSubview:m];
     [pv addSubview:SU_label(@"Welcome to Saturn", SU_font(44, NSFontWeightMedium), Y_ink(), NSMakeRect(0, 168, kSetupW, 54), NSTextAlignmentCenter, NO)];
-    [pv addSubview:SU_label(@"A calmer way to browse, with Elaine built in.\nSetup takes less than a minute.", SU_font(18, NSFontWeightRegular), Y_muted(), NSMakeRect(130, 100, kSetupW - 260, 56), NSTextAlignmentCenter, YES)];
+    [pv addSubview:SU_label(@"A calmer way to browse, with Hanna built in.\nSetup takes less than a minute.", SU_font(18, NSFontWeightRegular), Y_muted(), NSMakeRect(130, 100, kSetupW - 260, 56), NSTextAlignmentCenter, YES)];
 }
 
 - (void)buildSearch:(NSView *)pv {
@@ -540,9 +540,9 @@ static CGPathRef SU_checkPath(CGFloat s) {
     [pv addSubview:SU_label(@"Everything works out of the box.", SU_font(16, NSFontWeightRegular), Y_muted(), NSMakeRect(0, 346, kSetupW, 22), NSTextAlignmentCenter, NO)];
 
     NSArray *rows = @[
-        @[@"sparkles", @"Elaine, your AI companion", @"Ask about any page or your open tabs. Press ⌘I to open her."],
+        @[@"sparkles", @"Hanna, your AI companion", @"Ask about any page or your open tabs. Press ⌘I to open her."],
         @[@"shield.lefthalf.filled", @"Saturn Shield", @"Blocks ads and trackers on every site, with a one-click pause."],
-        @[@"mic.fill", @"Talk to your browser", @"Use your voice to ask Elaine things hands-free."],
+        @[@"mic.fill", @"Talk to your browser", @"Use your voice to ask Hanna things hands-free."],
     ];
     CGFloat rw = 580, rh = 88, gap = 14;
     CGFloat x = (kSetupW - rw) / 2;
@@ -576,7 +576,7 @@ static CGPathRef SU_checkPath(CGFloat s) {
     [pv addSubview:check];
     [pv addSubview:SU_label(@"You're all set", SU_font(44, NSFontWeightMedium), Y_ink(), NSMakeRect(0, 160, kSetupW, 54), NSTextAlignmentCenter, NO)];
     NSString *engine = [SaturnSearchEngineInfo infoForEngine:_selectedEngine].name ?: @"your default engine";
-    NSString *sub = [NSString stringWithFormat:@"Searching with %@. Press ⌘I any time to ask Elaine.", engine];
+    NSString *sub = [NSString stringWithFormat:@"Searching with %@. Press ⌘I any time to ask Hanna.", engine];
     [pv addSubview:SU_label(sub, SU_font(18, NSFontWeightRegular), Y_muted(), NSMakeRect(130, 100, kSetupW - 260, 56), NSTextAlignmentCenter, YES)];
 }
 

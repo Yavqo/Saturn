@@ -391,7 +391,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
                 }
             };
 
-            // Secrets: never typed by Elaine
+            // Secrets: never typed by Hanna
             if ([name isEqualToString:@"type"]) {
                 NSString *meta = [[NSString stringWithFormat:@"%@ %@ %@", info[@"type"], info[@"autocomplete"], info[@"name"]] lowercaseString];
                 NSArray *secret = @[@"password", @"cc-number", @"cc-csc", @"cc-exp", @"card", @"cvv", @"cvc", @"ssn", @"social-security"];
@@ -404,7 +404,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
             // Risky clicks need the user's OK
             if ([name isEqualToString:@"click"] && [s isSensitiveLabel:label href:info[@"href"]]) {
                 NSString *host = [self webView].URL.host ?: @"this page";
-                [w agentConfirmWithTitle:[NSString stringWithFormat:@"Elaine wants to click %@", quoted]
+                [w agentConfirmWithTitle:[NSString stringWithFormat:@"Hanna wants to click %@", quoted]
                                   detail:[NSString stringWithFormat:@"On %@. This could send, buy, delete or confirm something.", host]
                               completion:^(BOOL allow) {
                     if (allow) act();

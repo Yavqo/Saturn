@@ -77,7 +77,7 @@
 - (void)switchToTabAtIndex:(NSInteger)idx;
 - (void)closeTabView:(ChromeTabView *)tab;
 - (void)layoutTabs;
-@property (nonatomic, assign) BOOL hannaActMode;   // Elaine can drive the browser
+@property (nonatomic, assign) BOOL hannaActMode;   // Hanna can drive the browser
 - (void)stopHannaAgent;
 - (void)showUpdatePopover:(id)sender;
 - (void)showFeedbackSheet:(id)sender;

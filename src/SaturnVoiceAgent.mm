@@ -345,7 +345,7 @@
     clean = [clean stringByReplacingOccurrencesOfString:@"\n\n" withString:@". "];
     if (!clean.length) return;
 
-    [self setState:SaturnVoiceAgentStateSpeaking statusMessage:@"Elaine speaking (fish-audio)…"];
+    [self setState:SaturnVoiceAgentStateSpeaking statusMessage:@"Hanna speaking (fish-audio)…"];
 
     NSString *voiceId = self.voiceId.length ? self.voiceId : @"5233336f5f44460ea0902b0802375451";
     NSString *apiKey = self.openRouterApiKey;

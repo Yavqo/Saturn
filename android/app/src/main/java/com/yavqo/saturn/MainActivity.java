@@ -175,7 +175,7 @@ public class MainActivity extends Activity {
         LinearLayout list=column();Dialog dialog=sheet("Settings","Make Saturn feel like yours",list);
         settingRow(list,"Search engine","Used when you search from the address bar",prefs.getString("engine","Mars"),v->{dialog.dismiss();showSearchSettings();});
         settingRow(list,"Clear browsing data","Cookies, cache and website storage","",v->{dialog.dismiss();showClearData();});
-        TextView about=BrowserUi.text(this,"Saturn for Android  0.4.0\nAndroid preview · Elaine is available on desktop",13,BrowserUi.MUTED,false);about.setPadding(dp(4),dp(16),dp(4),dp(8));about.setLineSpacing(dp(5),1);list.addView(about);dialog.show();
+        TextView about=BrowserUi.text(this,"Saturn for Android  0.4.0\nAndroid preview · Hanna is available on desktop",13,BrowserUi.MUTED,false);about.setPadding(dp(4),dp(16),dp(4),dp(8));about.setLineSpacing(dp(5),1);list.addView(about);dialog.show();
     }
     private void showSearchSettings() {
         LinearLayout list=column();Dialog dialog=sheet("Search engine","Choose where your searches begin",list);

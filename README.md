@@ -99,9 +99,9 @@ Saturn updates itself from GitHub releases of `Yavqo/Saturn`. A few seconds afte
 
 Notes: tags with a suffix (`v0.2.0-beta1`) are marked pre-release and are **not** offered as updates. The updater verifies the download's SHA-256, its code signature and that it is a newer Saturn build before installing. Builds are currently ad-hoc signed (no Apple Developer ID), which is fine for in-app updates; first installs of a downloaded copy need right-click ▸ Open once.
 
-## Elaine research tools
+## Hanna research tools
 
-In Elaine's **Browse** mode, you can ask her to:
+In Hanna's **Browse** mode, you can ask her to:
 - Find text on the page and jump to a specific match.
 - Read your selected text.
 - Extract links, optionally filtered by topic.

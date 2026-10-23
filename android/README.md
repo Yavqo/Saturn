@@ -8,7 +8,7 @@ Android preview of Saturn 0.4.0. Requires Android 8.0 or newer.
 - Settings for Mars, Google or DuckDuckGo search and clearing browsing data.
 - Silver and graphite browser chrome, drawn icons, a bottom address bar, and custom tab and settings panels.
 
-Uses Android's installed WebView. Elaine and the desktop automation tools are not included in this preview. Tab URLs are restored on launch; navigation history is retained while the app is open. Downloads, file uploads and site camera/microphone permissions are not implemented.
+Uses Android's installed WebView. Hanna and the desktop automation tools are not included in this preview. Tab URLs are restored on launch; navigation history is retained while the app is open. Downloads, file uploads and site camera/microphone permissions are not implemented.
 
 ## Build
 
