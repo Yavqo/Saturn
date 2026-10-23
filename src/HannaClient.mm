@@ -10,7 +10,7 @@
 }
 
 static NSString *const kHannaGatewayURL = @"https://openrouter.ai/api/v1/chat/completions";
-static NSString *const kHannaModel = @"minimax/minimax-m3.1-flash:free";
+static NSString *const kHannaModel = @"recursive/flint-v1.0:free";
 static NSString *const kHannaKeyName = @"OPENROUTER_API_KEY";
 
 // OpenRouter key: environment, then .env (project folder or app support), then UserDefaults.
