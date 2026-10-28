@@ -1,5 +1,6 @@
 #import "YavqoTheme.h"
 #import "SaturnShield.h"
+#import "SaturnShieldLists.h"
 #import <QuartzCore/QuartzCore.h>
 
 @implementation SaturnShieldStats
@@ -24,6 +25,18 @@
 }
 
 @end
+
+// Regex for one list entry: a host (optionally with a path) anchored to the start of the URL.
+static NSString *SaturnShieldURLFilterForEntry(NSString *entry) {
+    NSString *host = entry, *path = nil;
+    NSRange slash = [entry rangeOfString:@"/"];
+    if (slash.location != NSNotFound) { host = [entry substringToIndex:slash.location]; path = [entry substringFromIndex:slash.location]; }
+    NSString *(^esc)(NSString *) = ^NSString *(NSString *t) {
+        t = [t stringByReplacingOccurrencesOfString:@"." withString:@"\\."];
+        return [t stringByReplacingOccurrencesOfString:@"?" withString:@"\\?"];
+    };
+    return [NSString stringWithFormat:@"^[^:]+://+([^:/]+\\.)?%@%@", esc(host), path ? esc(path) : @"[:/]"];
+}
 
 @implementation SaturnShield {
     WKContentRuleList *_ruleList;
@@ -146,40 +159,45 @@
         return;
     }
 
-    // WebKit's content-rule regex has no alternation ("a|b"), so each domain gets its own rule.
+    // WebKit's content-rule regex has no alternation ("a|b"), so each host gets its own rule. Rules are anchored to the
+    // request's host, so "hotjar.com" blocks script.hotjar.com but never a page that merely mentions it in a query string.
     NSMutableArray<NSDictionary *> *rules = [NSMutableArray array];
-    NSString *(^esc)(NSString *) = ^NSString *(NSString *d) { return [d stringByReplacingOccurrencesOfString:@"." withString:@"\\."]; };
-    void (^blockDomains)(NSArray<NSString *> *) = ^(NSArray<NSString *> *domains) {
-        for (NSString *d in domains) {
-            [rules addObject:@{@"trigger": @{@"url-filter": [@"[/.]" stringByAppendingString:esc(d)]}, @"action": @{@"type": @"block"}}];
+    NSArray *subresourceTypes = @[@"image", @"style-sheet", @"script", @"font", @"raw", @"svg-document", @"media", @"popup", @"ping"];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    void (^blockHosts)(NSArray<NSString *> *) = ^(NSArray<NSString *> *entries) {
+        for (NSString *entry in entries) {
+            if (!entry.length || [seen containsObject:entry]) continue;
+            [seen addObject:entry];
+            NSString *re = SaturnShieldURLFilterForEntry(entry);
+            // Subresources and requests from scripts...
+            [rules addObject:@{@"trigger": @{@"url-filter": re, @"resource-type": subresourceTypes}, @"action": @{@"type": @"block"}}];
+            // ...and ad iframes. Opening one of these sites yourself (a top-level page) still works.
+            [rules addObject:@{@"trigger": @{@"url-filter": re, @"resource-type": @[@"document"], @"load-context": @[@"child-frame"]}, @"action": @{@"type": @"block"}}];
         }
     };
-    // 1. Ad networks and ad servers
-    blockDomains(@[@"doubleclick.net", @"googlesyndication.com", @"googleadservices.com", @"adservice.google.", @"adnxs.com", @"criteo.com",
-                   @"taboola.com", @"outbrain.com", @"scorecardresearch.com", @"ads.twitter.com", @"amazon-adsystem.com", @"popads.net",
-                   @"adcolony.com", @"unityads.unity3d.com", @"rubiconproject.com", @"moatads.com", @"openx.net", @"pubmatic.com",
-                   @"casalemedia.com", @"advertising.com", @"adroll.com", @"adtechus.com", @"bidswitch.net", @"smartadserver.com",
-                   @"indexexchange.com", @"revcontent.com", @"adcash.com", @"propellerads.com", @"sovrn.com", @"thetradedesk.com", @"media.net"]);
-    // 2. Tracking, telemetry and pixels
-    blockDomains(@[@"google-analytics.com", @"hotjar.com", @"segment.io", @"mixpanel.com", @"clarity.ms", @"quantserve.com", @"appsflyer.com",
-                   @"facebook.com/tr/", @"analytics.tiktok.com", @"mc.yandex.ru", @"statcounter.com", @"crazyegg.com", @"mouseflow.com",
-                   @"newrelic.com/nr-spa"]);
+    blockHosts(SaturnShieldAdHosts());
+    blockHosts(SaturnShieldTrackerHosts());
+    blockHosts(SaturnShieldMinerHosts());
+    // Regional Google ad service hosts (adservice.google.de, adservice.google.co.uk, ...)
+    [rules addObject:@{@"trigger": @{@"url-filter": @"^[^:]+://+adservice\\.google\\.", @"resource-type": subresourceTypes}, @"action": @{@"type": @"block"}}];
     [rules addObject:@{@"trigger": @{@"url-filter": @"sentry\\.io/api/[0-9]+/envelope"}, @"action": @{@"type": @"block"}}];
-    // 3. Crypto-miners
-    blockDomains(@[@"coinhive.com", @"crypto-loot.com", @"webminerpool.com", @"minr.pw", @"coin-have.com"]);
-    // 4. Ad URL paths (scripts and images only)
-    for (NSString *path in @[@"/pagead/", @"/advert/", @"/adserver/", @"/ad_tag", @"/banner_ad", @"/popunder", @"/adclick"]) {
-        [rules addObject:@{@"trigger": @{@"url-filter": esc(path), @"resource-type": @[@"script", @"image", @"raw"]}, @"action": @{@"type": @"block"}}];
+    // Ad and tracker URL paths (scripts, images and requests only)
+    for (NSString *path in @[@"/pagead/", @"/advert/", @"/adserver/", @"/ad_tag", @"/banner_ad", @"/popunder", @"/adclick", @"/adframe.", @"/ads.js",
+                             @"/adsbygoogle.js", @"/show_ads", @"/prebid.js", @"/prebid-", @"/adsense/", @"/admanager/", @"/adloader", @"/fbevents.js",
+                             @"/gtag/js", @"/analytics.js?", @"/ga.js", @"/beacon.js"]) {
+        [rules addObject:@{@"trigger": @{@"url-filter": [path stringByReplacingOccurrencesOfString:@"." withString:@"\\."], @"resource-type": @[@"script", @"image", @"raw", @"ping"]}, @"action": @{@"type": @"block"}}];
     }
-    // 5. Cosmetic element hiding
-    NSString *cosmeticJSON = @"{\"trigger\":{\"url-filter\":\".*\"},\"action\":{\"type\":\"css-display-none\",\"selector\":\".adsbygoogle, [class*=\\\"ad-banner\\\"], [class*=\\\"ad_banner\\\"], [id*=\\\"ad-slot\\\"], [id*=\\\"ad_slot\\\"], .sponsored-post, [class*=\\\"sponsored\\\"], .ad-container, #ad-wrapper, .ad_unit, [class*=\\\"google-ad\\\"], [class*=\\\"google_ad\\\"], .dfp-ad-container, [id*=\\\"google_ads_iframe\\\"], iframe[src*=\\\"doubleclick\\\"], iframe[src*=\\\"adservice\\\"], iframe[src*=\\\"adnxs\\\"], .taboola, .outbrain, #carbonads, [class*=\\\"advertisement\\\"], [id*=\\\"advertisement\\\"], ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, ytd-banner-promo-renderer, ytd-in-feed-ad-layout-renderer, #player-ads, .ytp-ad-module, .cookie-banner, #onetrust-banner-sdk, .qc-cmp2-container, [class*=\\\"cookie-notice\\\"]\"}}";
-    id cosmetic = [NSJSONSerialization JSONObjectWithData:[cosmeticJSON dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-    if (cosmetic) [rules addObject:cosmetic];
+    // Cosmetic element hiding, in chunks so one odd selector cannot take the whole list down
+    NSArray<NSString *> *selectors = SaturnShieldCosmeticSelectors();
+    for (NSUInteger i = 0; i < selectors.count; i += 24) {
+        NSArray *chunk = [selectors subarrayWithRange:NSMakeRange(i, MIN(24, selectors.count - i))];
+        [rules addObject:@{@"trigger": @{@"url-filter": @".*"}, @"action": @{@"type": @"css-display-none", @"selector": [chunk componentsJoinedByString:@", "]}}];
+    }
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:rules options:0 error:nil];
     NSString *json = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 
     WKContentRuleListStore *store = [WKContentRuleListStore defaultStore];
-    [store compileContentRuleListForIdentifier:@"SaturnShieldProRules"
+    [store compileContentRuleListForIdentifier:@"SaturnShieldRules2"
                         encodedContentRuleList:json
                              completionHandler:^(WKContentRuleList *list, NSError *err) {
         if (list) {
@@ -196,159 +214,139 @@
 
 @end
 
+static NSString *HostAlternation(NSArray<NSString *> *entries) {
+    NSMutableArray *parts = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+    for (NSString *e in entries) {
+        if ([e containsString:@"/"] || [e containsString:@"*"] || [seen containsObject:e]) continue;   // plain hosts only
+        [seen addObject:e];
+        [parts addObject:[e stringByReplacingOccurrencesOfString:@"." withString:@"\\\\."]];
+    }
+    return [parts componentsJoinedByString:@"|"];
+}
+
 NSString *SaturnShieldGetBlockingScript(void) {
-    return
-    @"(function() {\n"
-    "  if (window.__saturn_shield_pro_injected) return;\n"
-    "  window.__saturn_shield_pro_injected = true;\n"
-    "  \n"
-    "  // 1. Anti-Adblock Defuser: mock probes so sites never show 'AdBlock Detected'\n"
-    "  try {\n"
-    "    window.fuckAdBlock = { check: function(){}, onDetected: function(){}, onNotDetected: function(cb){ if(typeof cb==='function') cb(); } };\n"
-    "    window.blockAdBlock = window.fuckAdBlock;\n"
-    "    window.canRunAds = true;\n"
-    "    window.isAdBlockActive = false;\n"
-    "    window.adsbygoogle = { loaded: true, push: function(e){ reportBlocked('ads', 1); } };\n"
-    "    window.ga = function(){ reportBlocked('trackers', 1); };\n"
-    "    window.gtag = function(){ reportBlocked('trackers', 1); };\n"
-    "    window._gaq = { push: function(){ reportBlocked('trackers', 1); } };\n"
-    "    window.fbq = function(){ reportBlocked('trackers', 1); };\n"
-    "  } catch(e) {}\n"
-    "  \n"
-    "  // 2. Global Cosmetic Ad & Tracker Annihilation CSS\n"
-    "  var css = '.adsbygoogle, [class*=\"ad-banner\"], [class*=\"ad_banner\"], [id*=\"ad-slot\"], [id*=\"ad_slot\"], .sponsored-post, [class*=\"sponsored\"], .ad-container, #ad-wrapper, .ad_unit, [class*=\"google-ad\"], [class*=\"google_ad\"], .dfp-ad-container, [id*=\"google_ads_iframe\"], iframe[src*=\"doubleclick.net\"], iframe[src*=\"adservice.google\"], iframe[src*=\"adnxs.com\"], iframe[src*=\"criteo.com\"], iframe[src*=\"taboola.com\"], iframe[src*=\"outbrain.com\"], .taboola, .outbrain, #carbonads, [class*=\"advertisement\"], [id*=\"advertisement\"], ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, ytd-banner-promo-renderer, ytd-in-feed-ad-layout-renderer, #player-ads, .ytp-ad-module, .ytp-ad-overlay-container, .ytp-ad-message-container, .cookie-banner, #onetrust-banner-sdk, .qc-cmp2-container, [class*=\"cookie-notice\"], .didomi-popup-container { display: none !important; visibility: hidden !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; pointer-events: none !important; opacity: 0 !important; overflow: hidden !important; }';\n"
-    "  function injectCSS() {\n"
-    "    if (document.getElementById('__saturn_shield_style')) return;\n"
-    "    var style = document.createElement('style');\n"
-    "    style.id = '__saturn_shield_style';\n"
-    "    style.textContent = css;\n"
-    "    (document.head || document.documentElement).appendChild(style);\n"
-    "  }\n"
-    "  injectCSS();\n"
-    "  if (document.readyState === 'loading') {\n"
-    "    document.addEventListener('DOMContentLoaded', injectCSS);\n"
-    "  }\n"
-    "  \n"
-    "  // 3. WebKit Reporting Function with Category Categorization\n"
-    "  function reportBlocked(cat, count) {\n"
-    "    try {\n"
-    "      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.shieldBlocked) {\n"
-    "        window.webkit.messageHandlers.shieldBlocked.postMessage({ category: cat || 'ads', count: count || 1 });\n"
-    "      }\n"
-    "    } catch(e) {}\n"
-    "  }\n"
-    "  \n"
-    "  // 4. Tracker & Ad URL Regex Matcher\n"
-    "  var trackerPattern = /(google-analytics\\.com|hotjar\\.com|segment\\.io|mixpanel\\.com|clarity\\.ms|quantserve\\.com|appsflyer\\.com|facebook\\.com\\/tr\\/|analytics\\.tiktok\\.com|mc\\.yandex\\.ru|statcounter\\.com|crazyegg\\.com|mouseflow\\.com|newrelic\\.com|sentry\\.io)/i;\n"
-    "  var adPattern = /(doubleclick\\.net|googlesyndication\\.com|googleadservices\\.com|adservice\\.google\\.|adnxs\\.com|criteo\\.com|taboola\\.com|outbrain\\.com|scorecardresearch\\.com|ads\\.twitter\\.com|amazon-adsystem\\.com|popads\\.net|adcolony\\.com|unityads\\.unity3d\\.com|rubiconproject\\.com|moatads\\.com|openx\\.net|pubmatic\\.com|casalemedia\\.com|advertising\\.com|adroll\\.com|adtechus\\.com|bidswitch\\.net|smartadserver\\.com|indexexchange\\.com|revcontent\\.com|adcash\\.com|propellerads\\.com|sovrn\\.com|thetradedesk\\.com|media\\.net|\\/pagead\\/|\\/advert\\/|\\/adserver\\/|\\/ad_tag|\\/banner_ad|\\/popunder|\\/adclick)/i;\n"
-    "  \n"
-    "  // 5. Intercept Dynamic Script & Iframe Elements\n"
-    "  var origCreateElement = document.createElement.bind(document);\n"
-    "  document.createElement = function(tagName, options) {\n"
-    "    var el = origCreateElement(tagName, options);\n"
-    "    var tag = (tagName || '').toLowerCase();\n"
-    "    if (tag === 'script' || tag === 'iframe') {\n"
-    "      var origSetAttribute = el.setAttribute.bind(el);\n"
-    "      el.setAttribute = function(name, value) {\n"
-    "        if (name === 'src' && typeof value === 'string') {\n"
-    "          if (trackerPattern.test(value)) { reportBlocked('trackers', 1); return; }\n"
-    "          if (adPattern.test(value)) { reportBlocked('ads', 1); return; }\n"
-    "        }\n"
-    "        return origSetAttribute(name, value);\n"
-    "      };\n"
-    "      Object.defineProperty(el, 'src', {\n"
-    "        set: function(val) {\n"
-    "          if (typeof val === 'string') {\n"
-    "            if (trackerPattern.test(val)) { reportBlocked('trackers', 1); return; }\n"
-    "            if (adPattern.test(val)) { reportBlocked('ads', 1); return; }\n"
-    "          }\n"
-    "          el.setAttribute('src', val);\n"
-    "        },\n"
-    "        get: function() {\n"
-    "          return el.getAttribute('src') || '';\n"
-    "        }\n"
-    "      });\n"
-    "    }\n"
-    "    return el;\n"
-    "  };\n"
-    "  \n"
-    "  // 6. Network Interception (Fetch & XHR)\n"
-    "  if (window.fetch) {\n"
-    "    var origFetch = window.fetch;\n"
-    "    window.fetch = function(input, init) {\n"
-    "      var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');\n"
-    "      if (url) {\n"
-    "        if (trackerPattern.test(url)) {\n"
-    "          reportBlocked('trackers', 1);\n"
-    "          return Promise.resolve(new Response('{}', { status: 200, statusText: 'Blocked by Saturn Shield' }));\n"
-    "        }\n"
-    "        if (adPattern.test(url)) {\n"
-    "          reportBlocked('ads', 1);\n"
-    "          return Promise.resolve(new Response('', { status: 200, statusText: 'Blocked by Saturn Shield' }));\n"
-    "        }\n"
-    "      }\n"
-    "      return origFetch.apply(this, arguments);\n"
-    "    };\n"
-    "  }\n"
-    "  if (window.XMLHttpRequest) {\n"
-    "    var origOpen = XMLHttpRequest.prototype.open;\n"
-    "    XMLHttpRequest.prototype.open = function(method, url) {\n"
-    "      if (typeof url === 'string') {\n"
-    "        if (trackerPattern.test(url)) { reportBlocked('trackers', 1); return; }\n"
-    "        if (adPattern.test(url)) { reportBlocked('ads', 1); return; }\n"
-    "      }\n"
-    "      return origOpen.apply(this, arguments);\n"
-    "    };\n"
-    "  }\n"
-    "  \n"
-    "  // 7. Video Ad Fast-Forwarder & Auto-Skipper\n"
-    "  setInterval(function() {\n"
-    "    var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-overlay-close-button');\n"
-    "    if (skipBtn) {\n"
-    "      skipBtn.click();\n"
-    "      reportBlocked('ads', 1);\n"
-    "    }\n"
-    "    var adShowing = document.querySelector('.ad-showing, .ad-interrupting, .video-ads.ytp-ad-module');\n"
-    "    if (adShowing) {\n"
-    "      var video = document.querySelector('video');\n"
-    "      if (video && !isNaN(video.duration) && video.duration > 0) {\n"
-    "        video.currentTime = video.duration;\n"
-    "        reportBlocked('ads', 1);\n"
-    "      }\n"
-    "    }\n"
-    "  }, 200);\n"
-    "  \n"
-    "  // 8. Auto-Dismiss Cookie Consent Banners\n"
-    "  setInterval(function() {\n"
-    "    var cookieSelectors = ['#onetrust-accept-btn-handler', '.cc-btn.cc-dismiss', '.cmp-intro_acceptAll', '[id*=\"cookie-accept\"]', '[class*=\"cookie-accept\"]', '.accept-cookies-button', 'button[id*=\"accept-all\"]'];\n"
-    "    for (var i = 0; i < cookieSelectors.length; i++) {\n"
-    "      var btn = document.querySelector(cookieSelectors[i]);\n"
-    "      if (btn && !btn.__saturn_dismissed) {\n"
-    "        btn.__saturn_dismissed = true;\n"
-    "        btn.click();\n"
-    "        reportBlocked('annoyances', 1);\n"
-    "        break;\n"
-    "      }\n"
-    "    }\n"
-    "  }, 600);\n"
-    "  \n"
-    "  // 9. DOM Mutation Observer to Eliminate Injected Ad Nodes\n"
-    "  var observer = new MutationObserver(function(mutations) {\n"
-    "    var nodes = document.querySelectorAll('.adsbygoogle, [class*=\"ad-banner\"], [id*=\"ad-slot\"], .sponsored-post, [class*=\"sponsored\"], .ad-container, [id*=\"google_ads_iframe\"], iframe[src*=\"doubleclick\"], iframe[src*=\"adservice\"]');\n"
-    "    for (var i = 0; i < nodes.length; i++) {\n"
-    "      var el = nodes[i];\n"
-    "      if (el && !el.__saturn_blocked) {\n"
-    "        el.__saturn_blocked = true;\n"
-    "        el.style.setProperty('display', 'none', 'important');\n"
-    "        el.style.setProperty('height', '0px', 'important');\n"
-    "        reportBlocked('ads', 1);\n"
-    "      }\n"
-    "    }\n"
-    "  });\n"
-    "  if (document.body || document.documentElement) {\n"
-    "    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });\n"
-    "  }\n"
-    "})();";
+    static NSString *cached;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *tpl = @R"JS((function() {
+  if (window.__saturn_shield_pro_injected) return;
+  window.__saturn_shield_pro_injected = true;
+
+  function reportBlocked(cat, count) {
+    try { window.webkit.messageHandlers.shieldBlocked.postMessage({ category: cat || 'ads', count: count || 1 }); } catch (e) {}
+  }
+
+  // Requests to listed hosts are blocked by the browser's own rules (so they fail like any blocked request).
+  // These patterns only count them for the shield popover; every call still goes through unchanged.
+  var adRe = new RegExp('^[a-z][a-z0-9+.-]*://([^/:?#]+\\.)?(__AD_HOSTS__)([:/?#]|$)', 'i');
+  var trRe = new RegExp('^[a-z][a-z0-9+.-]*://([^/:?#]+\\.)?(__TRACKER_HOSTS__)([:/?#]|$)', 'i');
+  function classify(u) {
+    try { u = new URL(String(u), location.href).href; } catch (e) { return null; }
+    if (adRe.test(u)) return 'ads';
+    if (trRe.test(u)) return 'trackers';
+    return null;
+  }
+  function count(u) { var c = classify(u); if (c) reportBlocked(c, 1); }
+
+  // 1. Anti-adblock wall defusers: stub the well-known detector libraries so they never show "AdBlock detected".
+  try {
+    var det = {
+      check: function() { return false; }, onDetected: function() { return det; },
+      onNotDetected: function(cb) { if (typeof cb === 'function') { try { cb(); } catch (e) {} } return det; },
+      setOption: function() { return det; }, clearEvent: function() { return det; }, emitEvent: function() { return det; }
+    };
+    if (!window.fuckAdBlock) window.fuckAdBlock = det;
+    if (!window.blockAdBlock) window.blockAdBlock = det;
+    if (!window.adsbygoogle) window.adsbygoogle = [];
+  } catch (e) {}
+
+  // 2. Cosmetic filters
+  var css = '__CSS__ { display: none !important; visibility: hidden !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; pointer-events: none !important; }';
+  function injectCSS() {
+    if (document.getElementById('__saturn_shield_style')) return;
+    var style = document.createElement('style');
+    style.id = '__saturn_shield_style';
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+  }
+  injectCSS();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectCSS);
+
+  // 3. Count requests that scripts make to listed hosts (fetch, XHR, beacons, dynamic <script>/<iframe>/<img>)
+  if (window.fetch) {
+    var origFetch = window.fetch;
+    window.fetch = function(input) {
+      try { count(typeof input === 'string' ? input : (input && input.url) || ''); } catch (e) {}
+      return origFetch.apply(this, arguments);
+    };
+  }
+  if (window.XMLHttpRequest) {
+    var origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url) {
+      try { count(url); } catch (e) {}
+      return origOpen.apply(this, arguments);
+    };
+  }
+  if (navigator.sendBeacon) {
+    var origBeacon = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = function(url) { try { count(url); } catch (e) {} return origBeacon.apply(null, arguments); };
+  }
+  try {
+    var origSetAttr = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name, value) {
+      if (name === 'src' && /^(SCRIPT|IFRAME|IMG)$/.test(this.tagName)) { try { count(value); } catch (e) {} }
+      return origSetAttr.apply(this, arguments);
+    };
+  } catch (e) {}
+
+  // 4. Hide ads that appear after load, and count them
+  var adSelector = '.adsbygoogle, [id^="div-gpt-ad"], [id*="google_ads_iframe"], [data-ad-slot], [data-ad-client], iframe[src*="doubleclick"], iframe[src*="googlesyndication"], iframe[src*="adservice"], .sponsored-post, .ad-container, .ad-slot';
+  var scheduled = false;
+  function sweep() {
+    scheduled = false;
+    var nodes = document.querySelectorAll(adSelector);
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el && !el.__saturn_blocked) {
+        el.__saturn_blocked = true;
+        el.style.setProperty('display', 'none', 'important');
+        reportBlocked('ads', 1);
+      }
+    }
+  }
+  var observer = new MutationObserver(function() { if (!scheduled) { scheduled = true; setTimeout(sweep, 250); } });
+  function observe() { if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true }); }
+  observe();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sweep); else sweep();
+
+  // 5. Video ad skipper
+  setInterval(function() {
+    var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-overlay-close-button');
+    if (skipBtn) { skipBtn.click(); reportBlocked('ads', 1); }
+    var adShowing = document.querySelector('.ad-showing, .ad-interrupting, .video-ads.ytp-ad-module');
+    if (adShowing) {
+      var video = document.querySelector('video');
+      if (video && !isNaN(video.duration) && video.duration > 0 && isFinite(video.duration)) { video.currentTime = video.duration; reportBlocked('ads', 1); }
+    }
+  }, 250);
+
+  // 6. Dismiss cookie consent banners
+  setInterval(function() {
+    var sels = ['#onetrust-reject-all-handler', '#onetrust-accept-btn-handler', '.cc-btn.cc-dismiss', '.cmp-intro_acceptAll', '[id*="cookie-accept"]', '[class*="cookie-accept"]', '.accept-cookies-button', 'button[id*="accept-all"]'];
+    for (var i = 0; i < sels.length; i++) {
+      var btn = document.querySelector(sels[i]);
+      if (btn && !btn.__saturn_dismissed) { btn.__saturn_dismissed = true; btn.click(); reportBlocked('annoyances', 1); break; }
+    }
+  }, 700);
+})();)JS";
+        NSString *css = [SaturnShieldCosmeticSelectors() componentsJoinedByString:@", "];
+        css = [css stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
+        tpl = [tpl stringByReplacingOccurrencesOfString:@"__AD_HOSTS__" withString:HostAlternation(SaturnShieldAdHosts())];
+        tpl = [tpl stringByReplacingOccurrencesOfString:@"__TRACKER_HOSTS__" withString:HostAlternation(SaturnShieldTrackerHosts())];
+        cached = [tpl stringByReplacingOccurrencesOfString:@"__CSS__" withString:css];
+    });
+    return cached;
 }
 
 #pragma mark - Saturn Shield Pro Popover Controller

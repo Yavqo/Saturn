@@ -19,6 +19,7 @@ set(SATURN_SOURCES
     src/SettingsWindow.mm
     src/SetupWindow.mm
     src/SaturnShield.mm
+    src/SaturnShieldLists.mm
     src/HannaClient.mm
     src/SaturnVoiceAgent.mm
     src/SaturnDownloads.mm
@@ -31,6 +32,9 @@ set(SATURN_SOURCES
     src/SaturnReporter.mm
     src/SaturnDefaultBrowser.mm
     src/SaturnImporter.mm
+    src/SaturnVault.mm
+    src/SaturnVaultWindow.mm
+    src/SaturnVaultAutofill.mm
 )
 
 add_executable(saturn ${SATURN_SOURCES})
@@ -43,7 +47,7 @@ target_link_libraries(saturn PRIVATE
     "-framework UniformTypeIdentifiers"
     "-framework QuartzCore"
     "-framework AVFoundation"
-    "-framework Speech"
+    "-framework Speech" "-framework Security"
     sqlite3
 )
 
@@ -77,7 +81,7 @@ set_target_properties(saturn PROPERTIES
 
 # CLI wrapper: also build non-bundle binary for `build/saturn` terminal launch
 add_executable(saturn-cli ${SATURN_SOURCES})
-target_link_libraries(saturn-cli PRIVATE "-framework CoreServices" "-framework Cocoa" "-framework WebKit" "-framework UniformTypeIdentifiers" "-framework QuartzCore" "-framework AVFoundation" "-framework Speech" sqlite3)
+target_link_libraries(saturn-cli PRIVATE "-framework CoreServices" "-framework Cocoa" "-framework WebKit" "-framework UniformTypeIdentifiers" "-framework QuartzCore" "-framework AVFoundation" "-framework Speech" "-framework Security" sqlite3)
 target_include_directories(saturn-cli PRIVATE src)
 target_compile_options(saturn-cli PRIVATE -Wall -Wextra -Wno-deprecated-declarations -O2 -fobjc-arc)
 target_compile_definitions(saturn-cli PRIVATE SATURN_CLI=1)

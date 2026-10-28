@@ -1,4 +1,6 @@
 #import "SaturnAppDelegate.h"
+#import "SaturnVault.h"
+#import "SaturnVaultWindow.h"
 #import "SaturnWindow.h"
 #import "Supabase/SupabaseClient.h"
 #import "Settings.h"
@@ -156,10 +158,14 @@
         item.title = already ? @"Saturn Is Your Default Browser" : @"Make Saturn Your Default Browser…";
         return !already;
     }
+    if (item.action == @selector(lockVault:)) return [SaturnVault shared].unlocked;
     return YES;
 }
 
 - (void)createWindowWithURL:(NSURL *)url { [self createWindowWithURL:url privateMode:NO]; }
+
+- (void)openVault:(id)sender { (void)sender; [[SaturnVaultWindow shared] showVault]; }
+- (void)lockVault:(id)sender { (void)sender; [[SaturnVault shared] lock]; }
 
 - (void)newPrivateWindow:(id)sender {
     (void)sender;
@@ -273,6 +279,17 @@
     NSMenu *bmMenu = [[NSMenu alloc] initWithTitle:@"Bookmarks"]; bmItem.submenu = bmMenu;
     [bmMenu addItemWithTitle:@"Bookmark This Page" action:@selector(bookmarkPage:) keyEquivalent:@"d"];
     [bmMenu addItemWithTitle:@"Show or Hide Favorites Bar" action:@selector(toggleFavoritesBar:) keyEquivalent:@"B"];
+
+    NSMenuItem *vaultItem = [[NSMenuItem alloc] init]; vaultItem.title = @"Vault";
+    [mainMenu addItem:vaultItem];
+    NSMenu *vaultMenu = [[NSMenu alloc] initWithTitle:@"Vault"]; vaultItem.submenu = vaultMenu;
+    NSMenuItem *openVault = [vaultMenu addItemWithTitle:@"Open Yavqo Vault" action:@selector(openVault:) keyEquivalent:@"v"];
+    openVault.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagShift;
+    openVault.target = self;
+    [vaultMenu addItemWithTitle:@"Fill Saved Login" action:@selector(fillLogin:) keyEquivalent:@""];
+    [vaultMenu addItem:[NSMenuItem separatorItem]];
+    NSMenuItem *lockVault = [vaultMenu addItemWithTitle:@"Lock Vault" action:@selector(lockVault:) keyEquivalent:@""];
+    lockVault.target = self;
 
     NSMenuItem *tabItem = [[NSMenuItem alloc] init]; tabItem.title = @"Tab";
     [mainMenu addItem:tabItem];

@@ -14,6 +14,9 @@
 #import "SaturnUpdater.h"
 #import "SaturnReporter.h"
 #import "SaturnDefaultBrowser.h"
+#import "SaturnVault.h"
+#import "SaturnVaultWindow.h"
+#import "SaturnVaultAutofill.h"
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
@@ -65,6 +68,8 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 @property (nonatomic, strong) SaturnSuggestView *suggestView;
 @property (nonatomic, strong) HannaAgent *hannaAgent;
 @property (nonatomic, strong) NSButton *updateButton;
+@property (nonatomic, strong) NSButton *vaultKeyButton;
+@property (nonatomic, strong) SaturnVaultAutofill *vaultAutofill;
 @property (nonatomic, strong) NSPopover *updatePopover;
 @property (nonatomic, strong) NSButton *chatModeButton;
 @property (nonatomic, strong) NSButton *actModeButton;
@@ -704,19 +709,17 @@ static void EnsureWKContentViewSwizzled(void) {
     return nil;
 }
 
-- (NSMenu *)menuForEvent:(NSEvent *)event {
-    NSMenu *m = [self customContextMenuForEvent:event];
-    if (m) return m;
-    return [super menuForEvent:event];
-}
-
-- (void)rightMouseDown:(NSEvent *)event {
-    NSMenu *m = [self customContextMenuForEvent:event];
-    if (m) {
-        [NSMenu popUpContextMenu:m withEvent:event forView:self];
-        return;
+// The page gets the right-click first. Only when it does not handle it (no preventDefault on "contextmenu")
+// does WebKit open its menu, and then we swap in Saturn's menu. Pages with their own right-click actions keep them.
+- (void)willOpenMenu:(NSMenu *)menu withEvent:(NSEvent *)event {
+    [super willOpenMenu:menu withEvent:event];
+    NSMenu *custom = [self customContextMenuForEvent:event];
+    if (!custom) return;
+    [menu removeAllItems];
+    for (NSMenuItem *item in [custom.itemArray copy]) {
+        [custom removeItem:item];
+        [menu addItem:item];
     }
-    [super rightMouseDown:event];
 }
 @end
 
@@ -2350,12 +2353,14 @@ static void YRing(NSView *box, BOOL on) {
         for (NSView *sub in self.omniboxContainer.subviews) {
             if (sub == self.addressBar) {
                 NSRect af = sub.frame;
-                af.origin.x = 40; af.origin.y = 10; af.size.width = omniboxW - 40 - 120; af.size.height = 18;
+                af.origin.x = 40; af.origin.y = 10; af.size.width = omniboxW - 40 - 150; af.size.height = 18;
                 sub.frame = af;
             } else if (sub == self.reloadBtn) {
                 NSRect bf = sub.frame; bf.origin.x = omniboxW - 108; bf.origin.y = 5; sub.frame = bf;
             } else if (sub == self.shieldButton) {
                 NSRect bf = sub.frame; bf.origin.x = omniboxW - 76; bf.origin.y = 5; sub.frame = bf;
+            } else if (sub == self.vaultKeyButton) {
+                NSRect bf = sub.frame; bf.origin.x = omniboxW - 138; bf.origin.y = 5; sub.frame = bf;
             } else if ([sub isKindOfClass:[NSButton class]] && sub != self.shieldButton && sub != self.reloadBtn && sub.tag == 777) {
                 NSRect bf = sub.frame; bf.origin.x = omniboxW - 48; bf.origin.y = 5; sub.frame = bf;
             }
@@ -2454,7 +2459,7 @@ static void YRing(NSView *box, BOOL on) {
     if (searchIcon.image) { searchIcon.image.size = NSMakeSize(13, 13); [searchIcon.image setTemplate:YES]; }
     [self.omniboxContainer addSubview:searchIcon];
 
-    self.addressBar = [[NSTextField alloc] initWithFrame:NSMakeRect(40, 10, omniboxW - 40 - 120, 18)];
+    self.addressBar = [[NSTextField alloc] initWithFrame:NSMakeRect(40, 10, omniboxW - 40 - 150, 18)];
     NSString *ph = [NSString stringWithFormat:@"Search %@ or enter website name", SaturnSettings.shared.currentEngineInfo.shortName ?: @"Mars"];
     self.addressBar.placeholderString = ph;
     self.addressBar.stringValue = SaturnSettings.shared.currentEngineInfo.homeURL ?: @"";
@@ -2497,6 +2502,15 @@ static void YRing(NSView *box, BOOL on) {
     starBtn.toolTip = @"Bookmark this page";
     self.bookmarkButton = starBtn;
     [self.omniboxContainer addSubview:starBtn];
+
+    // Yavqo Vault key: appears on pages with a sign-in form, or when a login can be saved
+    NSButton *keyBtn = SaturnPlainButton(@"key.fill", @selector(vaultKeyTapped:), self, NSMakeRect(omniboxW - 138, 5, 28, 28), 13);
+    keyBtn.toolTip = @"Yavqo Vault";
+    [keyBtn setAccessibilityLabel:@"Yavqo Vault"];
+    self.vaultKeyButton = keyBtn;
+    [self.omniboxContainer addSubview:keyBtn];
+    __weak typeof(self) weakVaultSelf = self;
+    self.vaultAutofill = [[SaturnVaultAutofill alloc] initWithKeyButton:keyBtn privateWindow:self.isPrivate currentWebView:^WKWebView *{ return weakVaultSelf.webView; }];
 
     // Right cluster pinned to trailing edge: share + sidebar + Hanna + settings + avatar (Safari-style)
     CGFloat (^rx)(CGFloat) = ^CGFloat(CGFloat off){ return W0 - off; };
@@ -2952,6 +2966,9 @@ static void YRing(NSView *box, BOOL on) {
     (void)sender;
     [[SettingsWindow shared] showForWindow:self];
 }
+
+- (void)vaultKeyTapped:(id)sender { (void)sender; [self.vaultAutofill togglePopover]; }
+- (void)fillLogin:(id)sender { (void)sender; [self.vaultAutofill fillFirstMatch]; }
 
 - (void)showAuth:(id)sender {
     [[AuthWindow shared] showForWindow:self];
@@ -3445,6 +3462,10 @@ static void YRing(NSView *box, BOOL on) {
     [cfg.userContentController addUserScript:shieldScript];
     [cfg.userContentController addScriptMessageHandler:self name:@"shieldBlocked"];
     [cfg.userContentController addScriptMessageHandler:self name:@"saturnHistory"];   // only honoured from saturn://history
+    // Yavqo Vault: login-form detection runs in its own content world, out of reach of the page's scripts
+    WKUserScript *vaultScript = [[WKUserScript alloc] initWithSource:[SaturnVaultAutofill pageScriptSource] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES inContentWorld:[SaturnVaultAutofill world]];
+    [cfg.userContentController addUserScript:vaultScript];
+    [cfg.userContentController addScriptMessageHandler:self contentWorld:[SaturnVaultAutofill world] name:[SaturnVaultAutofill messageHandlerName]];
     [cfg setURLSchemeHandler:[SaturnSchemeHandler shared] forURLScheme:@"saturn"];
     if (self.isPrivate) cfg.websiteDataStore = self.privateStore;
 
@@ -4786,6 +4807,7 @@ static void YRing(NSView *box, BOOL on) {
     [self updateShieldButtonState];
     [self updateBookmarkButton];
     [self updateBookmarkButton];
+    [self.vaultAutofill refresh];
     [self updateReloadButtonLoading:wv.loading];
     if (wv.loading) { self.progress.hidden = NO; [self.progress startAnimation:nil]; }
     else { [self.progress stopAnimation:nil]; self.progress.hidden = YES; }
@@ -5423,6 +5445,7 @@ static void YRing(NSView *box, BOOL on) {
         [self updateNavButtons];
         [self updateShieldButtonState];
         [self updateBookmarkButton];
+        [self.vaultAutofill refresh];
     }
 }
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
@@ -5471,6 +5494,7 @@ static void YRing(NSView *box, BOOL on) {
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
     (void)userContentController;
     if ([message.name isEqualToString:@"saturnHistory"]) { [self handleHistoryMessage:message]; return; }
+    if ([message.name isEqualToString:[SaturnVaultAutofill messageHandlerName]]) { [self.vaultAutofill handleScriptMessage:message]; return; }
     if ([message.name isEqualToString:@"contextMenuInfo"]) {
         if ([message.body isKindOfClass:[NSDictionary class]]) {
             self.lastContextMenuInfo = [message.body mutableCopy];

@@ -99,6 +99,15 @@ Saturn updates itself from GitHub releases of `Yavqo/Saturn`. A few seconds afte
 
 Notes: tags with a suffix (`v0.2.0-beta1`) are marked pre-release and are **not** offered as updates. The updater verifies the download's SHA-256, its code signature and that it is a newer Saturn build before installing. Builds are currently ad-hoc signed (no Apple Developer ID), which is fine for in-app updates; first installs of a downloaded copy need right-click ▸ Open once.
 
+## Yavqo Vault
+
+A built-in password manager. **Vault ▸ Open Yavqo Vault** (⇧⌘V) opens it; the first time you create a master password.
+
+- Logins are encrypted on this Mac (AES-256 + HMAC-SHA256, key from your master password with PBKDF2, 600,000 rounds) in `~/Library/Application Support/Saturn/vault.json`. Nothing is uploaded, and the master password cannot be recovered.
+- After you sign in to a site, a key icon in the address bar offers to save the login. On a sign-in page the same icon lists your saved logins; nothing is ever filled until you pick one. Private windows never offer to save.
+- Generate strong passwords, see strength and reuse warnings, check a password against known breaches (only a 5-character hash prefix is sent), and import a CSV exported from Chrome or Safari.
+- Copied passwords are hidden from clipboard history and cleared after 30 seconds. The vault locks after 5 minutes, when the Mac sleeps, or on **Vault ▸ Lock Vault**.
+
 ## Hanna research tools
 
 In Hanna's **Browse** mode, you can ask her to:
