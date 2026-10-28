@@ -99,6 +99,11 @@ Saturn updates itself from GitHub releases of `Yavqo/Saturn`. A few seconds afte
 
 Notes: tags with a suffix (`v0.2.0-beta1`) are marked pre-release and are **not** offered as updates. The updater verifies the download's SHA-256, its code signature and that it is a newer Saturn build before installing. Builds are currently ad-hoc signed (no Apple Developer ID), which is fine for in-app updates; first installs of a downloaded copy need right-click ▸ Open once.
 
+## Extensions
+
+Add features with extensions: open `saturn://extensions` for the store, your installed extensions and a starter template.
+Developers: see [docs/extensions.md](docs/extensions.md) to build and submit your own.
+
 ## Yavqo Vault
 
 A built-in password manager. **Vault ▸ Open Yavqo Vault** (⇧⌘V) opens it; the first time you create a master password.

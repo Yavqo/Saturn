@@ -1,0 +1,7 @@
+html[data-focus-comments] ytd-comments#comments { display: none !important; }
+html[data-focus-related] #related,
+html[data-focus-related] ytd-watch-next-secondary-results-renderer { display: none !important; }
+html[data-focus-shorts] ytd-reel-shelf-renderer,
+html[data-focus-shorts] ytd-rich-shelf-renderer[is-shorts],
+html[data-focus-shorts] ytd-guide-entry-renderer:has(a[title="Shorts"]),
+html[data-focus-shorts] ytd-mini-guide-entry-renderer[aria-label="Shorts"] { display: none !important; }

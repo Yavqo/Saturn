@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "extensions": [
+    {
+      "id": "yavqo.dark-pages",
+      "name": "Dark Pages",
+      "version": "1.0.0",
+      "description": "Turns bright websites dark. Photos and video keep their real colours.",
+      "author": "Yavqo",
+      "tags": [
+        "appearance",
+        "reading"
+      ],
+      "permissions": [
+        "storage",
+        "activeTab"
+      ],
+      "sites": [
+        "<all_urls>"
+      ],
+      "download": "packages/yavqo.dark-pages-1.0.0.zip",
+      "sha256": "839e825627520c0a9bdf26bf9c8500ef339a1f5ff3ab41a13b7d3064e64a0b02"
+    },
+    {
+      "id": "yavqo.focus-youtube",
+      "name": "Focus for YouTube",
+      "version": "1.0.0",
+      "description": "Hide YouTube comments, recommended videos and Shorts so you watch what you came for.",
+      "author": "Yavqo",
+      "tags": [
+        "focus",
+        "youtube"
+      ],
+      "permissions": [
+        "storage",
+        "activeTab"
+      ],
+      "sites": [
+        "https://www.youtube.com/*"
+      ],
+      "download": "packages/yavqo.focus-youtube-1.0.0.zip",
+      "sha256": "52ba389ce468ec88a1f08f2fa04657a804c05e95f10fdd4aedcd8c2121a371e4"
+    },
+    {
+      "id": "yavqo.word-count",
+      "name": "Word Count",
+      "version": "1.0.0",
+      "description": "Counts the words on a page, or in your selection, and estimates the reading time.",
+      "author": "Yavqo",
+      "tags": [
+        "reading",
+        "writing"
+      ],
+      "permissions": [
+        "activeTab",
+        "clipboardWrite"
+      ],
+      "sites": [
+        "<all_urls>"
+      ],
+      "download": "packages/yavqo.word-count-1.0.0.zip",
+      "sha256": "8c667c793e0171eec3fd21c479f7bd9ab88f9d96907a4315a34069b9dd1dd76e"
+    }
+  ]
+}

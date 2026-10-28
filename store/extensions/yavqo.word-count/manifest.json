@@ -1,0 +1,15 @@
+{
+  "manifest_version": 1,
+  "id": "yavqo.word-count",
+  "name": "Word Count",
+  "version": "1.0.0",
+  "description": "Counts the words on a page, or in your selection, and estimates the reading time.",
+  "author": "Yavqo",
+  "icon": "icon.svg",
+  "tags": ["reading", "writing"],
+  "permissions": ["activeTab", "clipboardWrite"],
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }
+  ],
+  "action": { "title": "Word Count", "popup": "popup.html", "popup_width": 300, "popup_height": 230 }
+}

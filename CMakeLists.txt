@@ -20,6 +20,8 @@ set(SATURN_SOURCES
     src/SetupWindow.mm
     src/SaturnShield.mm
     src/SaturnShieldLists.mm
+    src/SaturnExtensions.mm
+    src/SaturnExtensionsPage.mm
     src/HannaClient.mm
     src/SaturnVoiceAgent.mm
     src/SaturnDownloads.mm
@@ -95,6 +97,19 @@ add_custom_command(TARGET saturn POST_BUILD
 )
 add_custom_command(TARGET saturn-cli POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SATURN_RESOURCES} $<TARGET_FILE_DIR:saturn-cli>
+)
+
+
+# Extension template and the bundled store catalogue (used offline and before the online store is reachable)
+add_custom_command(TARGET saturn POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/extensions-template $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/extensions-template
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/packages $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/store/packages
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/store/index.json $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/store/index.json
+)
+add_custom_command(TARGET saturn-cli POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/extensions-template $<TARGET_FILE_DIR:saturn-cli>/extensions-template
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/packages $<TARGET_FILE_DIR:saturn-cli>/store/packages
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/store/index.json $<TARGET_FILE_DIR:saturn-cli>/store/index.json
 )
 
 # Build type

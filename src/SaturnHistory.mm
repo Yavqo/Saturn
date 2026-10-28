@@ -1,5 +1,6 @@
 #import "SaturnHistory.h"
 #import "SaturnBookmarks.h"
+#import "SaturnExtensions.h"
 
 NSNotificationName const SaturnHistoryChangedNotification = @"SaturnHistoryChanged";
 
@@ -377,9 +378,10 @@ kbd{font:600 13px/1 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif
     (void)webView;
     NSURL *url = task.request.URL;
     NSString *host = url.host;
-    BOOL ok = [host isEqualToString:@"history"] || [host isEqualToString:@"shortcuts"];
+    BOOL ok = [host isEqualToString:@"history"] || [host isEqualToString:@"shortcuts"] || [host isEqualToString:@"extensions"];
     NSString *html = [host isEqualToString:@"history"] ? [[SaturnHistory shared] historyPageHTML]
                    : [host isEqualToString:@"shortcuts"] ? SaturnShortcutsPageHTML()
+                   : [host isEqualToString:@"extensions"] ? [[SaturnExtensions shared] pageHTML]
                    : @"<!doctype html><title>Not found</title><p>Not found";
     NSData *body = [html dataUsingEncoding:NSUTF8StringEncoding];
     NSHTTPURLResponse *resp = [[NSHTTPURLResponse alloc] initWithURL:url statusCode:ok ? 200 : 404 HTTPVersion:@"HTTP/1.1"

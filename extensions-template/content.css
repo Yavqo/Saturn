@@ -1,0 +1,6 @@
+/* Added to the pages listed under "matches" in manifest.json. */
+html.my-extension-on a {
+  outline: 2px solid #0064E0;
+  outline-offset: 2px;
+  border-radius: 4px;
+}

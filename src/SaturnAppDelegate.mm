@@ -291,6 +291,12 @@
     NSMenuItem *lockVault = [vaultMenu addItemWithTitle:@"Lock Vault" action:@selector(lockVault:) keyEquivalent:@""];
     lockVault.target = self;
 
+    NSMenuItem *extItem = [[NSMenuItem alloc] init]; extItem.title = @"Extensions";
+    [mainMenu addItem:extItem];
+    NSMenu *extMenu = [[NSMenu alloc] initWithTitle:@"Extensions"]; extItem.submenu = extMenu;
+    [extMenu addItemWithTitle:@"Manage Extensions…" action:@selector(showExtensionsPage:) keyEquivalent:@""].tag = 0;
+    [extMenu addItemWithTitle:@"Extension Store…" action:@selector(showExtensionsPage:) keyEquivalent:@""].tag = 1;
+
     NSMenuItem *tabItem = [[NSMenuItem alloc] init]; tabItem.title = @"Tab";
     [mainMenu addItem:tabItem];
     NSMenu *tabMenu = [[NSMenu alloc] initWithTitle:@"Tab"]; tabItem.submenu = tabMenu;

@@ -1,0 +1,7 @@
+html.yavqo-dark-pages { filter: invert(1) hue-rotate(180deg); background: #fff; }
+/* Put media back so photos and video look right. */
+html.yavqo-dark-pages img,
+html.yavqo-dark-pages picture,
+html.yavqo-dark-pages video,
+html.yavqo-dark-pages canvas,
+html.yavqo-dark-pages iframe { filter: invert(1) hue-rotate(180deg); }

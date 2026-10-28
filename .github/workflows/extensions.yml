@@ -1,0 +1,37 @@
+# Checks extensions on every pull request. After a merge to main it rebuilds the store packages and catalogue.
+name: Extensions
+
+on:
+  pull_request:
+    paths: ['store/extensions/**', 'extensions-template/**', 'scripts/saturn-ext.py']
+  push:
+    branches: [main]
+    paths: ['store/extensions/**', 'scripts/saturn-ext.py']
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the template and every store extension
+        run: python3 scripts/saturn-ext.py validate extensions-template store/extensions/*
+
+  publish:
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build packages and catalogue
+        run: python3 scripts/saturn-ext.py build-store
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add store/index.json store/packages
+          if git diff --cached --quiet; then echo "Nothing to commit"; exit 0; fi
+          git commit -m "Update extension store packages [skip ci]"
+          git push

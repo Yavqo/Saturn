@@ -1,0 +1,15 @@
+{
+  "manifest_version": 1,
+  "id": "yavqo.focus-youtube",
+  "name": "Focus for YouTube",
+  "version": "1.0.0",
+  "description": "Hide YouTube comments, recommended videos and Shorts so you watch what you came for.",
+  "author": "Yavqo",
+  "icon": "icon.svg",
+  "tags": ["focus", "youtube"],
+  "permissions": ["storage", "activeTab"],
+  "content_scripts": [
+    { "matches": ["https://www.youtube.com/*"], "js": ["content.js"], "css": ["content.css"], "run_at": "document_start" }
+  ],
+  "action": { "title": "Focus for YouTube", "popup": "popup.html", "popup_width": 320, "popup_height": 280 }
+}

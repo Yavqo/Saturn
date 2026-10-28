@@ -17,6 +17,7 @@
 #import "SaturnVault.h"
 #import "SaturnVaultWindow.h"
 #import "SaturnVaultAutofill.h"
+#import "SaturnExtensions.h"
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
@@ -69,6 +70,7 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 @property (nonatomic, strong) HannaAgent *hannaAgent;
 @property (nonatomic, strong) NSButton *updateButton;
 @property (nonatomic, strong) NSButton *vaultKeyButton;
+@property (nonatomic, strong) NSButton *extensionsButton;
 @property (nonatomic, strong) SaturnVaultAutofill *vaultAutofill;
 @property (nonatomic, strong) NSPopover *updatePopover;
 @property (nonatomic, strong) NSButton *chatModeButton;
@@ -2343,7 +2345,7 @@ static void YRing(NSView *box, BOOL on) {
         self.aiSidebar.frame = sf;
     }
     // Toolbar internals: Safari rounded-rect field centered, clusters pinned
-    CGFloat omniboxW = MIN(680, MAX(340, W - 620));
+    CGFloat omniboxW = MIN(680, MAX(340, W - 720));
     CGFloat omniboxX = (W - omniboxW) / 2;
     if (self.omniboxContainer) {
         NSRect of = self.omniboxContainer.frame;
@@ -2436,7 +2438,7 @@ static void YRing(NSView *box, BOOL on) {
     [toolbar addSubview:self.forwardBtn];
 
     // Omnibox — Safari-style rounded-rect field (solid, subtle)
-    CGFloat omniboxW = MIN(680, MAX(340, W0 - 620));
+    CGFloat omniboxW = MIN(680, MAX(340, W0 - 720));
     CGFloat omniboxX = (W0 - omniboxW)/2;
     NSView *omnibox = [[NSView alloc] initWithFrame:NSMakeRect(omniboxX, 9, omniboxW, 38)];
     omnibox.wantsLayer = YES;
@@ -2544,8 +2546,18 @@ static void YRing(NSView *box, BOOL on) {
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(downloadsChanged:) name:SaturnDownloadsChangedNotification object:nil];
     [self updateDownloadsButton];
 
+    // Extensions: puzzle piece opens the list of toolbar actions, Manage and the Store
+    NSButton *extBtn = SaturnPlainButton(@"puzzlepiece.extension", @selector(showExtensionsMenu:), self, NSMakeRect(rx(262), 11, 34, 34), 16);
+    extBtn.autoresizingMask = NSViewMinXMargin;
+    extBtn.toolTip = @"Extensions";
+    [extBtn setAccessibilityLabel:@"Extensions"];
+    self.extensionsButton = extBtn;
+    [toolbar addSubview:extBtn];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(extensionsChanged:) name:SaturnExtensionsChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(extensionOpenURL:) name:SaturnExtensionOpenURLNotification object:nil];
+
     // Update pill (only visible when a newer release exists)
-    YSheetButton *upBtn = [[YSheetButton alloc] initWithTitle:@"Update" primary:YES frame:NSMakeRect(rx(334), 12, 100, 32)];
+    YSheetButton *upBtn = [[YSheetButton alloc] initWithTitle:@"Update" primary:YES frame:NSMakeRect(rx(358), 12, 92, 32)];
     upBtn.target = self;
     upBtn.action = @selector(showUpdatePopover:);
     upBtn.autoresizingMask = NSViewMinXMargin;
@@ -2965,6 +2977,46 @@ static void YRing(NSView *box, BOOL on) {
 - (void)showSettings:(id)sender {
     (void)sender;
     [[SettingsWindow shared] showForWindow:self];
+}
+
+#pragma mark Extensions
+
+- (void)extensionsChanged:(NSNotification *)n {
+    (void)n;
+    if (self.isPrivate) return;
+    for (WKWebView *wv in self.tabWebViews) [[SaturnExtensions shared] applyToController:wv.configuration.userContentController];
+}
+
+- (void)extensionOpenURL:(NSNotification *)n {
+    WKWebView *source = n.object;
+    NSURL *u = n.userInfo[@"url"];
+    if (!u) return;
+    if (source ? ![self.tabWebViews containsObject:source] : !self.isKeyWindow) return;
+    [self createNewTabWithURL:u];
+}
+
+- (void)showExtensionsMenu:(id)sender {
+    (void)sender;
+    NSMenu *m = [[SaturnExtensions shared] toolbarMenuWithTarget:self manageAction:@selector(showExtensionsPage:)];
+    [m popUpMenuPositioningItem:nil atLocation:NSMakePoint(0, -4) inView:self.extensionsButton];
+}
+
+- (void)openExtensionPopup:(NSMenuItem *)sender {
+    __weak typeof(self) weakSelf = self;
+    [SaturnExtensions shared].activeWebViewProvider = ^WKWebView *{ return weakSelf.webView; };
+    [[SaturnExtensions shared] showPopupForExtensionID:sender.representedObject relativeToView:self.extensionsButton];
+}
+
+- (void)showExtensionsPage:(id)sender {
+    NSString *hash = ([sender respondsToSelector:@selector(tag)] && [sender tag] == 1) ? @"store" : @"installed";
+    for (NSInteger i = 0; i < (NSInteger)self.tabWebViews.count; i++) {
+        if ([self.tabWebViews[i].URL.absoluteString hasPrefix:@"saturn://extensions"]) {
+            [self switchToTabAtIndex:i];
+            [self.tabWebViews[i] evaluateJavaScript:[NSString stringWithFormat:@"location.hash='%@'", hash] completionHandler:nil];
+            return;
+        }
+    }
+    [self createNewTabWithURL:[NSURL URLWithString:[@"saturn://extensions#" stringByAppendingString:hash]]];
 }
 
 - (void)vaultKeyTapped:(id)sender { (void)sender; [self.vaultAutofill togglePopover]; }
@@ -3468,6 +3520,12 @@ static void YRing(NSView *box, BOOL on) {
     [cfg.userContentController addScriptMessageHandler:self contentWorld:[SaturnVaultAutofill world] name:[SaturnVaultAutofill messageHandlerName]];
     [cfg setURLSchemeHandler:[SaturnSchemeHandler shared] forURLScheme:@"saturn"];
     if (self.isPrivate) cfg.websiteDataStore = self.privateStore;
+
+    // Extensions: their files are served from saturn-extension://, their content scripts run in isolated worlds,
+    // and the saturn://extensions page may manage them. Private windows run no extensions.
+    [cfg setURLSchemeHandler:[[SaturnExtensions shared] schemeHandler] forURLScheme:@"saturn-extension"];
+    [cfg.userContentController addScriptMessageHandler:self name:@"saturnExtensions"];   // only honoured from saturn://extensions
+    if (!self.isPrivate) [[SaturnExtensions shared] applyToController:cfg.userContentController];
 
     EnsureWKContentViewSwizzled();
     SaturnWebView *wv = [[SaturnWebView alloc] initWithFrame:NSMakeRect(0, 0, W, webH) configuration:cfg];
@@ -5433,7 +5491,7 @@ static void YRing(NSView *box, BOOL on) {
         ChromeTabView *t = self.tabs[idx];
         // keep existing favicon until fetch completes
         NSImage *keep = t.favicon ?: [NSImage imageWithSystemSymbolName:@"globe" accessibilityDescription:nil];
-        if ([webView.URL.scheme isEqualToString:@"saturn"]) keep = Y_symbol(@"clock.arrow.circlepath", 14, NSFontWeightMedium);
+        if ([webView.URL.scheme isEqualToString:@"saturn"]) keep = Y_symbol([webView.URL.host isEqualToString:@"extensions"] ? @"puzzlepiece.extension" : @"clock.arrow.circlepath", 14, NSFontWeightMedium);
         [t updateTitle:title favicon:keep active:(idx==self.activeTabIndex)];
         [[SaturnSession shared] scheduleSave];
         [self fetchFaviconForWebView:webView];
@@ -5494,6 +5552,7 @@ static void YRing(NSView *box, BOOL on) {
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
     (void)userContentController;
     if ([message.name isEqualToString:@"saturnHistory"]) { [self handleHistoryMessage:message]; return; }
+    if ([message.name isEqualToString:@"saturnExtensions"]) { [[SaturnExtensions shared] handlePageMessage:message]; return; }
     if ([message.name isEqualToString:[SaturnVaultAutofill messageHandlerName]]) { [self.vaultAutofill handleScriptMessage:message]; return; }
     if ([message.name isEqualToString:@"contextMenuInfo"]) {
         if ([message.body isKindOfClass:[NSDictionary class]]) {
