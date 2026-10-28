@@ -6,12 +6,22 @@
   "description": "Outlines the links on a page. Replace this with what your extension does.",
   "author": "Your Name",
   "icon": "icon.svg",
-  "permissions": ["storage", "activeTab"],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://example.com/*", "https://*.wikipedia.org/*"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://example.com/*",
+        "https://*.wikipedia.org/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -20,5 +30,7 @@
     "popup": "popup.html",
     "popup_width": 320,
     "popup_height": 220
-  }
+  },
+  "long_description": "details.md",
+  "homepage": "https://github.com/Yavqo/Saturn/blob/main/docs/extensions.md"
 }

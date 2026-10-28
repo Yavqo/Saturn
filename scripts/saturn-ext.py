@@ -10,6 +10,8 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import struct
 import sys
 import zipfile
 
@@ -31,6 +33,18 @@ def rel_ok(p):
 
 def pattern_ok(p):
     return isinstance(p, str) and (p == "<all_urls>" or bool(PATTERN_RE.match(p)))
+
+
+def png_size(path):
+    """(width, height) of a PNG, or None for other formats."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(24)
+        if head[:8] == b"\x89PNG\r\n\x1a\n":
+            return struct.unpack(">II", head[16:24])
+    except OSError:
+        pass
+    return None
 
 
 def is_broad(p):
@@ -132,6 +146,31 @@ def validate(folder, store=False):
     icon = m.get("icon")
     if icon is not None and (not rel_ok(icon) or not os.path.isfile(os.path.join(folder, icon))):
         errors.append(f"Can't find icon {icon!r}.")
+    long_file = m.get("long_description")
+    if long_file is not None:
+        full = os.path.join(folder, long_file) if rel_ok(long_file) else ""
+        if not rel_ok(long_file) or not long_file.lower().endswith((".md", ".txt")) or not os.path.isfile(full):
+            errors.append(f"long_description must be a .md or .txt file in the folder (can't find {long_file!r}).")
+        elif len(open(full, encoding="utf-8", errors="ignore").read()) > 20000:
+            errors.append("The long_description file is longer than 20,000 characters.")
+    shots = m.get("screenshots", [])
+    if not isinstance(shots, list) or len(shots) > 6:
+        errors.append("screenshots must be a list of up to 6 images.")
+        shots = []
+    for sh in shots:
+        src = sh.get("src") if isinstance(sh, dict) else sh
+        caption = sh.get("caption", "") if isinstance(sh, dict) else ""
+        if not rel_ok(src) or not src.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or not os.path.isfile(os.path.join(folder, src)):
+            errors.append(f"Can't find screenshot {src!r} (png, jpg or webp).")
+            continue
+        if not isinstance(caption, str) or len(caption) > 80:
+            errors.append(f"The caption for {src} is longer than 80 characters.")
+        size = png_size(os.path.join(folder, src))
+        if size and (size[0] < 800 or abs(size[0] / size[1] - 1.6) > 0.25):
+            warnings.append(f"{src} is {size[0]}x{size[1]}. Screenshots look best at 1280x800 (16:10).")
+    homepage = m.get("homepage")
+    if homepage is not None and not (isinstance(homepage, str) and homepage.startswith("https://") and len(homepage) <= 200):
+        errors.append("homepage must be an https address.")
     for w in m.get("web_accessible_resources", []):
         if not rel_ok(w) or not os.path.isfile(os.path.join(folder, w)):
             errors.append(f"web_accessible_resources: can't find {w!r}.")
@@ -149,6 +188,10 @@ def validate(folder, store=False):
             errors.append("A store listing needs an author.")
         if not icon:
             warnings.append("No icon. A listing looks better with one.")
+        if not shots:
+            warnings.append("No screenshots. A listing with 2-4 screenshots gets more trust.")
+        if not long_file:
+            warnings.append("No long_description. Add a details.md that explains what it does and why it needs its access.")
         if "storage" not in perms and any("storage." in open(os.path.join(folder, f), encoding="utf-8", errors="ignore").read() for f in _all_js(folder)):
             warnings.append("The code uses saturn.storage but the manifest doesn't list the 'storage' permission.")
         for f in _all_js(folder) + _all_html(folder):
@@ -217,7 +260,10 @@ def cmd_validate(folders):
 def cmd_build_store():
     ext_dir = os.path.join(STORE, "extensions")
     pkg_dir = os.path.join(STORE, "packages")
+    assets_dir = os.path.join(STORE, "assets")
+    shutil.rmtree(assets_dir, ignore_errors=True)
     os.makedirs(pkg_dir, exist_ok=True)
+    os.makedirs(assets_dir, exist_ok=True)
     listing, failed = [], False
     seen = set()
     for name in sorted(os.listdir(ext_dir)):
@@ -240,9 +286,24 @@ def cmd_build_store():
         zip_name = f"{m['id']}-{m['version']}.zip"
         digest = package(folder, os.path.join(pkg_dir, zip_name))
         sites = sorted({p for e in m.get("content_scripts", []) for p in e["matches"]})
+        # Listing images live outside the package so the store can show them before anything is downloaded.
+        def asset(rel):
+            dest = os.path.join(assets_dir, m["id"], rel)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copyfile(os.path.join(folder, rel), dest)
+            return f"assets/{m['id']}/{rel}"
+        icon_path = asset(m["icon"]) if m.get("icon") else None
+        shot_list = []
+        for sh in m.get("screenshots", []):
+            src = sh.get("src") if isinstance(sh, dict) else sh
+            shot_list.append({"src": asset(src), "caption": sh.get("caption", "") if isinstance(sh, dict) else ""})
+        long_text = ""
+        if m.get("long_description"):
+            long_text = open(os.path.join(folder, m["long_description"]), encoding="utf-8").read().strip()
         listing.append({
             "id": m["id"], "name": m["name"], "version": m["version"], "description": m.get("description", ""), "author": m.get("author", ""),
             "tags": [t for t in m.get("tags", []) if isinstance(t, str)][:5], "permissions": m.get("permissions", []), "sites": sites,
+            "icon": icon_path, "screenshots": shot_list, "long_description": long_text, "homepage": m.get("homepage"),
             "download": f"packages/{zip_name}", "sha256": digest,
         })
         print(f"built {zip_name}")

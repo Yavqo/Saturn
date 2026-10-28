@@ -2,19 +2,48 @@
   "manifest_version": 1,
   "id": "yavqo.dark-pages",
   "name": "Dark Pages",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Turns bright websites dark. Photos and video keep their real colours.",
   "author": "Yavqo",
   "icon": "icon.svg",
-  "tags": ["appearance", "reading"],
-  "permissions": ["storage", "activeTab"],
+  "tags": [
+    "appearance",
+    "reading"
+  ],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_start"
     }
   ],
-  "action": { "title": "Dark Pages", "popup": "popup.html", "popup_width": 300, "popup_height": 190 }
+  "action": {
+    "title": "Dark Pages",
+    "popup": "popup.html",
+    "popup_width": 300,
+    "popup_height": 190
+  },
+  "long_description": "details.md",
+  "homepage": "https://github.com/Yavqo/Saturn",
+  "screenshots": [
+    {
+      "src": "screenshots/before-after.png",
+      "caption": "The same page with Dark Pages off and on"
+    },
+    {
+      "src": "screenshots/popup.png",
+      "caption": "One switch in the toolbar popup"
+    }
+  ]
 }

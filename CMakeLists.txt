@@ -104,11 +104,13 @@ add_custom_command(TARGET saturn-cli POST_BUILD
 add_custom_command(TARGET saturn POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/extensions-template $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/extensions-template
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/packages $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/store/packages
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/assets $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/store/assets
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/store/index.json $<TARGET_BUNDLE_CONTENT_DIR:saturn>/Resources/store/index.json
 )
 add_custom_command(TARGET saturn-cli POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/extensions-template $<TARGET_FILE_DIR:saturn-cli>/extensions-template
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/packages $<TARGET_FILE_DIR:saturn-cli>/store/packages
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/assets $<TARGET_FILE_DIR:saturn-cli>/store/assets
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/store/index.json $<TARGET_FILE_DIR:saturn-cli>/store/index.json
 )
 

@@ -217,7 +217,32 @@ static NSDictionary *SEParseExtension(NSString *dir, NSString * __strong *error)
     }
     NSString *icon = m[@"icon"];
     if (icon && (!SERelPathOK(icon) || ![fm fileExistsAtPath:[dir stringByAppendingPathComponent:icon]])) { fail([NSString stringWithFormat:@"Can't find icon “%@”.", icon]); return nil; }
+    // Store-page details: a longer description (Markdown file), screenshots and a home page.
+    NSString *longText = @"";
+    id longFile = m[@"long_description"];
+    if (longFile) {
+        BOOL isDir = NO;
+        NSString *ext = [longFile isKindOfClass:[NSString class]] ? [longFile pathExtension].lowercaseString : @"";
+        if (!SERelPathOK(longFile) || !([ext isEqualToString:@"md"] || [ext isEqualToString:@"txt"]) || ![fm fileExistsAtPath:[dir stringByAppendingPathComponent:longFile] isDirectory:&isDir] || isDir) { fail([NSString stringWithFormat:@"long_description must be a .md or .txt file in the folder (can't find %@).", longFile]); return nil; }
+        longText = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:longFile] encoding:NSUTF8StringEncoding error:nil] ?: @"";
+        if (longText.length > 20000) { fail(@"The long_description file is longer than 20,000 characters."); return nil; }
+    }
+    NSMutableArray *shots = [NSMutableArray array];
+    id shotList = m[@"screenshots"] ?: @[];
+    if (![shotList isKindOfClass:[NSArray class]] || [shotList count] > 6) { fail(@"screenshots must be a list of up to 6 images."); return nil; }
+    for (id sh in shotList) {
+        NSString *src = [sh isKindOfClass:[NSDictionary class]] ? sh[@"src"] : sh;
+        NSString *caption = [sh isKindOfClass:[NSDictionary class]] && [sh[@"caption"] isKindOfClass:[NSString class]] ? sh[@"caption"] : @"";
+        NSString *ext = [src isKindOfClass:[NSString class]] ? src.pathExtension.lowercaseString : @"";
+        BOOL isDir = NO;
+        if (!SERelPathOK(src) || !([@[@"png", @"jpg", @"jpeg", @"webp"] containsObject:ext]) || ![fm fileExistsAtPath:[dir stringByAppendingPathComponent:src] isDirectory:&isDir] || isDir) { fail([NSString stringWithFormat:@"Can't find screenshot %@ (png, jpg or webp).", src]); return nil; }
+        if (caption.length > 80) { fail(@"A screenshot caption is longer than 80 characters."); return nil; }
+        [shots addObject:@{@"src": src, @"caption": caption}];
+    }
+    NSString *homepage = [m[@"homepage"] isKindOfClass:[NSString class]] ? m[@"homepage"] : nil;
+    if (m[@"homepage"] && (!homepage || homepage.length > 200 || ![[NSURL URLWithString:homepage].scheme isEqualToString:@"https"])) { fail(@"homepage must be an https address."); return nil; }
     NSMutableSet *accessible = [NSMutableSet set];
+    for (NSDictionary *sh in shots) [accessible addObject:sh[@"src"]];
     for (id w in (m[@"web_accessible_resources"] ?: @[])) {
         if (!SERelPathOK(w) || ![fm fileExistsAtPath:[dir stringByAppendingPathComponent:w]]) { fail([NSString stringWithFormat:@"web_accessible_resources: can't find “%@”.", w]); return nil; }
         [accessible addObject:w];
@@ -228,7 +253,7 @@ static NSDictionary *SEParseExtension(NSString *dir, NSString * __strong *error)
     return @{@"id": extID, @"name": name, @"version": version, @"description": desc, @"author": author, @"permissions": perms,
              @"sites": sites.array, @"scripts": scripts, @"popup": popup ?: [NSNull null], @"popupWidth": @(MIN(600, MAX(200, [action[@"popup_width"] integerValue] ?: 340))),
              @"popupHeight": @(MIN(600, MAX(100, [action[@"popup_height"] integerValue] ?: 420))), @"title": action[@"title"] ?: name, @"icon": icon ?: [NSNull null],
-             @"accessible": accessible.allObjects, @"dir": dir};
+             @"accessible": accessible.allObjects, @"dir": dir, @"longDescription": longText, @"screenshots": shots, @"homepage": homepage ?: [NSNull null]};
 }
 
 #pragma mark - Page scripts
@@ -436,6 +461,7 @@ static NSString *SEExtensionIDForMessage(WKScriptMessage *m) {
     NSDictionary *ext = [self.owner extensionWithID:extID];
     NSString *rel = [url.path stringByRemovingPercentEncoding];
     if ([rel hasPrefix:@"/"]) rel = [rel substringFromIndex:1];
+    if ([extID isEqualToString:@"_store"]) { [self serveStoreAsset:rel forTask:task url:url]; return; }
     // Extension pages (the popup) may read any file; websites and the extensions page only the files the manifest lists.
     NSURL *requester = task.request.mainDocumentURL;
     BOOL fromExtension = [requester.scheme isEqualToString:kExtScheme] && [requester.host.lowercaseString isEqualToString:extID];
@@ -456,6 +482,27 @@ static NSString *SEExtensionIDForMessage(WKScriptMessage *m) {
     [task didFinish];
 }
 - (void)webView:(WKWebView *)webView stopURLSchemeTask:(id<WKURLSchemeTask>)task { (void)webView; (void)task; }
+
+// Store listing images that ship inside the app (used when the online catalogue can't be reached): saturn-extension://_store/assets/...
+// Only the saturn://extensions page may load them.
+- (void)serveStoreAsset:(NSString *)rel forTask:(id<WKURLSchemeTask>)task url:(NSURL *)url {
+    NSURL *requester = task.request.mainDocumentURL;
+    BOOL fromPage = [requester.scheme isEqualToString:@"saturn"] && [requester.host isEqualToString:@"extensions"];
+    NSSet *types = [NSSet setWithArray:@[@"png", @"jpg", @"jpeg", @"webp", @"svg"]];
+    NSData *body = nil;
+    if (fromPage && SERelPathOK(rel) && [rel hasPrefix:@"assets/"] && [types containsObject:rel.pathExtension.lowercaseString]) {
+        for (NSString *base in @[[NSBundle mainBundle].resourcePath ?: @"", [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] ?: @""]) {
+            NSString *root = [[base stringByAppendingPathComponent:@"store"] stringByResolvingSymlinksInPath];
+            NSString *full = [[root stringByAppendingPathComponent:rel] stringByResolvingSymlinksInPath];
+            if ([full hasPrefix:[root stringByAppendingString:@"/"]] && (body = [NSData dataWithContentsOfFile:full])) break;
+        }
+    }
+    NSHTTPURLResponse *resp = [[NSHTTPURLResponse alloc] initWithURL:url statusCode:body ? 200 : 404 HTTPVersion:@"HTTP/1.1"
+                                                        headerFields:@{@"Content-Type": body ? SEMimeForPath(rel) : @"text/plain", @"Cache-Control": @"no-store"}];
+    [task didReceiveResponse:resp];
+    [task didReceiveData:body ?: [@"Not found" dataUsingEncoding:NSUTF8StringEncoding]];
+    [task didFinish];
+}
 @end
 
 #pragma mark - Manager
@@ -524,7 +571,7 @@ static NSString *SEExtensionIDForMessage(WKScriptMessage *m) {
         NSString *err = nil;
         NSDictionary *parsed = dir.length ? SEParseExtension(dir, &err) : nil;
         if (parsed && ![parsed[@"id"] isEqualToString:extID]) { parsed = nil; err = @"The manifest id changed. Remove this extension and load it again."; }
-        NSMutableDictionary *e = parsed ? [parsed mutableCopy] : [@{@"id": extID, @"name": extID, @"version": @"", @"description": @"", @"author": @"", @"permissions": @[], @"sites": @[], @"scripts": @[], @"popup": [NSNull null], @"icon": [NSNull null], @"accessible": @[], @"dir": dir ?: @""} mutableCopy];
+        NSMutableDictionary *e = parsed ? [parsed mutableCopy] : [@{@"id": extID, @"name": extID, @"version": @"", @"description": @"", @"author": @"", @"permissions": @[], @"sites": @[], @"scripts": @[], @"popup": [NSNull null], @"icon": [NSNull null], @"accessible": @[], @"dir": dir ?: @"", @"longDescription": @"", @"screenshots": @[], @"homepage": [NSNull null]} mutableCopy];
         e[@"dev"] = @(dev);
         e[@"enabled"] = @(parsed && [st[@"enabled"] boolValue]);
         e[@"error"] = err ?: [NSNull null];
@@ -841,22 +888,42 @@ static NSString *SEExtensionIDForMessage(WKScriptMessage *m) {
 
 #pragma mark Page (saturn://extensions)
 
+// Store listing images: https images from this repository when online, or the copies bundled in the app.
+- (NSString *)storeAssetURL:(NSString *)path {
+    if (![path isKindOfClass:[NSString class]] || !SERelPathOK(path)) return nil;
+    if (_storeBase.isFileURL) return [@"saturn-extension://_store/" stringByAppendingString:path];
+    NSString *abs = [NSURL URLWithString:path relativeToURL:_storeBase].absoluteURL.absoluteString;
+    return [abs hasPrefix:@"https://raw.githubusercontent.com/Yavqo/Saturn/"] ? abs : nil;
+}
+
 - (NSDictionary *)pageState {
     NSMutableArray *installed = [NSMutableArray array];
     for (NSDictionary *e in _exts) {
         BOOL all = NO;
         for (NSString *s in e[@"sites"]) if ([s isEqualToString:@"<all_urls>"] || [s hasPrefix:@"*://*/"] || [s hasPrefix:@"https://*/"] || [s hasPrefix:@"http://*/"]) all = YES;
+        NSMutableArray *shots = [NSMutableArray array];
+        for (NSDictionary *sh in e[@"screenshots"]) [shots addObject:@{@"url": [NSString stringWithFormat:@"saturn-extension://%@/%@", e[@"id"], sh[@"src"]], @"caption": sh[@"caption"]}];
         [installed addObject:@{@"id": e[@"id"], @"name": e[@"name"], @"version": e[@"version"], @"description": e[@"description"], @"author": e[@"author"],
                                @"enabled": e[@"enabled"], @"dev": e[@"dev"], @"error": e[@"error"], @"allSites": @(all), @"sites": e[@"sites"],
-                               @"permissions": e[@"permissions"], @"popup": @(![e[@"popup"] isKindOfClass:[NSNull class]]), @"icon": e[@"icon"]}];
+                               @"permissions": e[@"permissions"], @"popup": @(![e[@"popup"] isKindOfClass:[NSNull class]]), @"icon": e[@"icon"],
+                               @"longDescription": e[@"longDescription"] ?: @"", @"screenshots": shots, @"homepage": e[@"homepage"] ?: [NSNull null]}];
     }
     NSMutableArray *store = [NSMutableArray array];
     for (NSDictionary *i in _storeItems) {
         NSDictionary *have = [self extensionWithID:i[@"id"]];
         NSString *state = !have ? @"available" : (SEVersionCompare(have[@"version"], i[@"version"]) == NSOrderedAscending ? @"update" : @"installed");
         if (have && [have[@"dev"] boolValue]) state = @"dev";
+        NSMutableArray *shots = [NSMutableArray array];
+        for (id sh in ([i[@"screenshots"] isKindOfClass:[NSArray class]] ? i[@"screenshots"] : @[])) {
+            NSString *src = [sh isKindOfClass:[NSDictionary class]] ? sh[@"src"] : nil;
+            NSString *url = [self storeAssetURL:src];
+            if (url) [shots addObject:@{@"url": url, @"caption": [sh[@"caption"] isKindOfClass:[NSString class]] ? sh[@"caption"] : @""}];
+        }
+        NSString *homepage = [i[@"homepage"] isKindOfClass:[NSString class]] && [i[@"homepage"] hasPrefix:@"https://"] ? i[@"homepage"] : nil;
         [store addObject:@{@"id": i[@"id"], @"name": i[@"name"], @"version": i[@"version"], @"description": i[@"description"] ?: @"", @"author": i[@"author"] ?: @"",
-                           @"permissions": i[@"permissions"] ?: @[], @"sites": i[@"sites"] ?: @[], @"tags": i[@"tags"] ?: @[], @"state": state, @"busy": @([_installing containsObject:i[@"id"]])}];
+                           @"permissions": i[@"permissions"] ?: @[], @"sites": i[@"sites"] ?: @[], @"tags": i[@"tags"] ?: @[], @"state": state, @"busy": @([_installing containsObject:i[@"id"]]),
+                           @"iconURL": [self storeAssetURL:i[@"icon"]] ?: [NSNull null], @"longDescription": [i[@"long_description"] isKindOfClass:[NSString class]] ? i[@"long_description"] : @"",
+                           @"screenshots": shots, @"homepage": homepage ?: [NSNull null]}];
     }
     return @{@"installed": installed, @"store": @{@"status": _storeStatus ?: @"loading", @"items": store}};
 }
@@ -900,6 +967,10 @@ static NSString *SEExtensionIDForMessage(WKScriptMessage *m) {
     else if ([action isEqualToString:@"showInFinder"] && extID) {
         NSString *dir = [self extensionWithID:extID][@"dir"];
         if (dir.length) [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[[NSURL fileURLWithPath:dir]]];
+    }
+    else if ([action isEqualToString:@"openURL"] && [b[@"url"] isKindOfClass:[NSString class]]) {
+        NSURL *u = [NSURL URLWithString:b[@"url"]];
+        if ([u.scheme isEqualToString:@"https"] && u.host.length) [[NSNotificationCenter defaultCenter] postNotificationName:SaturnExtensionOpenURLNotification object:wv userInfo:@{@"url": u}];
     }
     else if ([action isEqualToString:@"openGuide"]) {
         NSString *which = b[@"which"];

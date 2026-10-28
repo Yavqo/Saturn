@@ -4,7 +4,7 @@
     {
       "id": "yavqo.dark-pages",
       "name": "Dark Pages",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Turns bright websites dark. Photos and video keep their real colours.",
       "author": "Yavqo",
       "tags": [
@@ -18,13 +18,26 @@
       "sites": [
         "<all_urls>"
       ],
-      "download": "packages/yavqo.dark-pages-1.0.0.zip",
-      "sha256": "839e825627520c0a9bdf26bf9c8500ef339a1f5ff3ab41a13b7d3064e64a0b02"
+      "icon": "assets/yavqo.dark-pages/icon.svg",
+      "screenshots": [
+        {
+          "src": "assets/yavqo.dark-pages/screenshots/before-after.png",
+          "caption": "The same page with Dark Pages off and on"
+        },
+        {
+          "src": "assets/yavqo.dark-pages/screenshots/popup.png",
+          "caption": "One switch in the toolbar popup"
+        }
+      ],
+      "long_description": "Turns bright websites dark so they are easier on your eyes in the evening.\n\n## How it works\n\n- Flips the colours of the page, then flips photos, video and embedded frames back so they still look right.\n- One switch in the toolbar popup turns it on or off. It applies to every site and is remembered on this Mac.\n\n## Good to know\n\n- It changes how every page looks, so it asks to **read and change data on all websites**. It never reads what is on the page and sends nothing anywhere.\n- Sites that already have a dark theme can look odd. Switch Dark Pages off for them from the popup.\n- Reload pages that are already open after you turn it on.",
+      "homepage": "https://github.com/Yavqo/Saturn",
+      "download": "packages/yavqo.dark-pages-1.1.0.zip",
+      "sha256": "60f28c2690dd2cf546497f9333c4777bc9606b874649ed6601bd426cc2e41787"
     },
     {
       "id": "yavqo.focus-youtube",
       "name": "Focus for YouTube",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Hide YouTube comments, recommended videos and Shorts so you watch what you came for.",
       "author": "Yavqo",
       "tags": [
@@ -38,13 +51,22 @@
       "sites": [
         "https://www.youtube.com/*"
       ],
-      "download": "packages/yavqo.focus-youtube-1.0.0.zip",
-      "sha256": "52ba389ce468ec88a1f08f2fa04657a804c05e95f10fdd4aedcd8c2121a371e4"
+      "icon": "assets/yavqo.focus-youtube/icon.svg",
+      "screenshots": [
+        {
+          "src": "assets/yavqo.focus-youtube/screenshots/popup.png",
+          "caption": "Choose what to hide"
+        }
+      ],
+      "long_description": "Watch what you came for.\n\n## What you can hide\n\n- **Comments** under a video.\n- **Recommended videos** next to and after a video.\n- **Shorts** shelves and the Shorts link in the menu.\n\n## Good to know\n\n- It only runs on youtube.com and only changes how the page looks. It doesn't read your account or watch history.\n- Each switch is saved on this Mac. Reload YouTube after adding the extension.",
+      "homepage": "https://github.com/Yavqo/Saturn",
+      "download": "packages/yavqo.focus-youtube-1.1.0.zip",
+      "sha256": "41fca9972dc05f7f89ee179cadd3622f6e1511ba27a6f8f06f99e8b13a7de885"
     },
     {
       "id": "yavqo.word-count",
       "name": "Word Count",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Counts the words on a page, or in your selection, and estimates the reading time.",
       "author": "Yavqo",
       "tags": [
@@ -58,8 +80,17 @@
       "sites": [
         "<all_urls>"
       ],
-      "download": "packages/yavqo.word-count-1.0.0.zip",
-      "sha256": "8c667c793e0171eec3fd21c479f7bd9ab88f9d96907a4315a34069b9dd1dd76e"
+      "icon": "assets/yavqo.word-count/icon.svg",
+      "screenshots": [
+        {
+          "src": "assets/yavqo.word-count/screenshots/popup.png",
+          "caption": "Words on the page and in your selection, with reading time"
+        }
+      ],
+      "long_description": "See how long a page is before you commit to reading it.\n\n## How it works\n\n- Open the extension from the toolbar to see the number of words on the page and in your selection.\n- It estimates the reading time at about 230 words a minute.\n- **Copy summary** puts a one-line summary on your clipboard.\n\n## Good to know\n\n- It only counts when you open the popup. It doesn't store or send what it reads.\n- Pages that are already open need a reload after you add the extension.",
+      "homepage": "https://github.com/Yavqo/Saturn",
+      "download": "packages/yavqo.word-count-1.1.0.zip",
+      "sha256": "2e9d20120b65cef4690d7c4bf3a60715a1751cd6468b236dbb8512c64287f961"
     }
   ]
 }
