@@ -115,6 +115,8 @@ A built-in password manager. **Vault ▸ Open Yavqo Vault** (⇧⌘V) opens it; 
 
 ## Alisa research tools
 
+Alisa runs on `free/muse-spark-1.3` through `https://api.apinex.bond/v1`. Release builds embed the key so Saturn works out of the box; the key lives in the local, git-ignored `secrets/apinex.key` and is compiled into the binary at build time (see `CMakeLists.txt`). Set `APINEX_API_KEY` in the environment or `.env` to override it.
+
 In Alisa's **Browse** mode, you can ask her to:
 - Find text on the page and jump to a specific match.
 - Read your selected text.

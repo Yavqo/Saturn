@@ -12,5 +12,8 @@ build/
 # Local release builds
 build-release/
 
+# Bundled API keys (embedded into release builds, never committed)
+secrets/
+
 # Local Android packages
 dist-android/

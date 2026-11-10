@@ -47,7 +47,15 @@ static NSString *const kAlisaKeyName = @"APINEX_API_KEY";
             if (v.length) return v;
         }
     }
-    return [[NSUserDefaults standardUserDefaults] stringForKey:@"saturn.apinex_api_key"];
+    NSString *saved = [[NSUserDefaults standardUserDefaults] stringForKey:@"saturn.apinex_api_key"];
+    if (saved.length) return saved;
+
+#ifdef SATURN_BUNDLED_API_KEY
+    // Key baked into release builds (see CMakeLists.txt) so Saturn works out of the box.
+    return @SATURN_BUNDLED_API_KEY;
+#else
+    return nil;
+#endif
 }
 
 - (BOOL)isConfigured {

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 # Release builds pass -DSATURN_VERSION=x.y.z (see scripts/release.sh); it becomes the app version the updater compares.
-set(SATURN_VERSION "0.4.0" CACHE STRING "Saturn version")
+set(SATURN_VERSION "0.7.1" CACHE STRING "Saturn version")
 project(SaturnBrowser VERSION ${SATURN_VERSION} LANGUAGES CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -113,6 +113,19 @@ add_custom_command(TARGET saturn-cli POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/store/assets $<TARGET_FILE_DIR:saturn-cli>/store/assets
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/store/index.json $<TARGET_FILE_DIR:saturn-cli>/store/index.json
 )
+
+# Bundled API key — read from secrets/apinex.key (git-ignored, local only) and embedded into
+# the binary so release builds work without anyone setting up an environment variable.
+set(SATURN_SECRET_KEY_FILE "${CMAKE_SOURCE_DIR}/secrets/apinex.key")
+if(EXISTS "${SATURN_SECRET_KEY_FILE}")
+    file(READ "${SATURN_SECRET_KEY_FILE}" SATURN_BUNDLED_API_KEY)
+    string(STRIP "${SATURN_BUNDLED_API_KEY}" SATURN_BUNDLED_API_KEY)
+    if(SATURN_BUNDLED_API_KEY)
+        message(STATUS "Bundling API key from secrets/apinex.key")
+        target_compile_definitions(saturn PRIVATE SATURN_BUNDLED_API_KEY="${SATURN_BUNDLED_API_KEY}")
+        target_compile_definitions(saturn-cli PRIVATE SATURN_BUNDLED_API_KEY="${SATURN_BUNDLED_API_KEY}")
+    endif()
+endif()
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE)

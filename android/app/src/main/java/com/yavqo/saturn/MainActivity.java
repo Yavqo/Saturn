@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
         TextView brand = BrowserUi.text(this,"Saturn",20,BrowserUi.INK,true);
         brand.setLetterSpacing(-0.035f); brand.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(brand,new LinearLayout.LayoutParams(0,dp(48),1));
+        button(header,"ask",v -> showAlisa()).setContentDescription("Ask Alisa");
         button(header,"settings",v -> showSettings()).setContentDescription("Open settings");
         progress = new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100); progress.setProgressTintList(android.content.res.ColorStateList.valueOf(BrowserUi.INK));
@@ -216,7 +217,7 @@ public class MainActivity extends Activity {
         settingRow(list,"Bookmarks","Saved pages",String.valueOf(bookmarks.size()),v->{dialog.dismiss();showBookmarks();});
         settingRow(list,"History","Recently visited pages",String.valueOf(history.size()),v->{dialog.dismiss();showHistory();});
         settingRow(list,"Clear browsing data","Cookies, cache and website storage","",v->{dialog.dismiss();showClearData();});
-        TextView about=BrowserUi.text(this,"Saturn for Android  0.7.0\nAndroid preview · Alisa is available on desktop",13,BrowserUi.MUTED,false);about.setPadding(dp(4),dp(16),dp(4),dp(8));about.setLineSpacing(dp(5),1);list.addView(about);dialog.show();
+        TextView about=BrowserUi.text(this,"Saturn for Android  0.7.1\nAndroid preview · Alisa is built in",13,BrowserUi.MUTED,false);about.setPadding(dp(4),dp(16),dp(4),dp(8));about.setLineSpacing(dp(5),1);list.addView(about);dialog.show();
     }
     private void showSearchSettings() {
         LinearLayout list=column();Dialog dialog=sheet("Search engine","Choose where your searches begin",list);
@@ -261,6 +262,54 @@ public class MainActivity extends Activity {
         JSONArray b=new JSONArray(); for(String x:bookmarks) b.put(x);
         JSONArray h=new JSONArray(); for(String x:history) h.put(x);
         prefs.edit().putString("bookmarks",b.toString()).putString("history",h.toString()).apply();
+    }
+    private void showAlisa() {
+        LinearLayout list=column();
+        ScrollView scroller=new ScrollView(this);
+        LinearLayout messages=column();
+        scroller.addView(messages);
+        list.addView(scroller,new LinearLayout.LayoutParams(-1,0,1));
+        EditText input=new EditText(this); input.setHint("Ask Alisa about this page"); input.setSingleLine(false); input.setTextSize(15);
+        input.setMaxLines(3); input.setPadding(dp(12),dp(10),dp(12),dp(10)); input.setBackground(BrowserUi.surface(this,Color.WHITE,16,BrowserUi.LINE));
+        list.addView(input,new LinearLayout.LayoutParams(-1,dp(56)));
+        Dialog dialog=new Dialog(this);
+        LinearLayout shell=new LinearLayout(this); shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setPadding(dp(16),dp(12),dp(16),dp(16));
+        shell.setBackground(BrowserUi.surface(this,Color.WHITE,28,0));
+        LinearLayout heading=new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
+        heading.addView(BrowserUi.text(this,"Alisa",20,BrowserUi.INK,true),new LinearLayout.LayoutParams(0,dp(36),1));
+        Button close=new Button(this); close.setText("Close"); close.setOnClickListener(v->dialog.dismiss()); heading.addView(close);
+        shell.addView(heading); shell.addView(scroller,new LinearLayout.LayoutParams(-1,0,1)); shell.addView(input,new LinearLayout.LayoutParams(-1,dp(56)));
+        Button send=new Button(this); send.setText("Ask");
+        Runnable ask=()->{
+            String question=input.getText().toString().trim();
+            if(question.isEmpty()) return;
+            input.setText("");
+            addBubble(messages,"You",question,true);
+            String page=current().getTitle()!=null ? current().getTitle()+" — "+String.valueOf(current().getUrl()) : String.valueOf(current().getUrl());
+            AlisaClient.ask(question,page,(reply,error)->{
+                if(error!=null) addBubble(messages,"Alisa",error,false);
+                else addBubble(messages,"Alisa",reply,false);
+            });
+        };
+        send.setOnClickListener(v->ask.run());
+        input.setOnEditorActionListener((v,action,event)->{ if(action==EditorInfo.IME_ACTION_GO||action==EditorInfo.IME_ACTION_SEND) { ask.run(); return true; } return false; });
+        shell.addView(send,new LinearLayout.LayoutParams(-1,dp(48)));
+        dialog.setContentView(shell);
+        Window window=dialog.getWindow();
+        window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND); window.setDimAmount(0.32f); window.setGravity(Gravity.BOTTOM);
+        dialog.setOnShowListener(d->window.setLayout(-1,-2));
+        dialog.show();
+    }
+    private void addBubble(LinearLayout parent,String who,String text,boolean mine) {
+        TextView bubble=BrowserUi.text(this,who+"\n"+text,14,mine?BrowserUi.INK:BrowserUi.MUTED,false);
+        bubble.setPadding(dp(12),dp(10),dp(12),dp(10));
+        bubble.setBackground(BrowserUi.surface(this,mine?BrowserUi.SURFACE:Color.WHITE,14,mine?BrowserUi.LINE:BrowserUi.LINE));
+        LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2); params.bottomMargin=dp(8);
+        parent.addView(bubble,params);
+        ScrollView scroller=(ScrollView)parent.getParent();
+        if(scroller!=null) scroller.post(()->scroller.fullScroll(ScrollView.FOCUS_DOWN));
     }
     private void showBookmarks() {
         LinearLayout list=column(); Dialog dialog=sheet("Bookmarks","Saved pages",list);

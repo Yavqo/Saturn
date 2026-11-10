@@ -6,8 +6,20 @@ android {
         applicationId 'com.yavqo.saturn'
         minSdk 26
         targetSdk 35
-        versionCode 40
-        versionName '0.4.0'
+        versionCode 41
+        versionName '0.7.1'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildFeatures { buildConfig true }
+
+    // The Alisa key is bundled from secrets/apinex.key (git-ignored, local only) so release builds
+    // work out of the box. Without that file the app falls back to an empty key.
+    def secretFile = file("${rootDir}/../secrets/apinex.key")
+    def bundledKey = ""
+    if (secretFile.exists()) { bundledKey = secretFile.text.trim() }
+    defaultConfig {
+        buildConfigField 'String', 'APINEX_API_KEY', "\"${bundledKey}\""
+        buildConfigField 'String', 'APINEX_BASE_URL', '"https://api.apinex.bond/v1"'
+        buildConfigField 'String', 'APINEX_MODEL', '"free/muse-spark-1.3"'
+    }
 }
