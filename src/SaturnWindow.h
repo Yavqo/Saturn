@@ -42,19 +42,19 @@
 @property (nonatomic, strong) NSButton *aiButton;
 @property (nonatomic, strong) NSVisualEffectView *aiSidebar;
 @property (nonatomic, assign) BOOL aiSidebarVisible;
-@property (nonatomic, strong) NSMutableArray<NSDictionary*> *hannaHistory;
-@property (nonatomic, strong) NSScrollView *hannaScrollView;
-@property (nonatomic, strong) NSTextView *hannaTextView;
-@property (nonatomic, strong) NSTextField *hannaInputField;
-@property (nonatomic, strong) NSButton *hannaSendButton;
-@property (nonatomic, strong) NSButton *hannaVoiceButton;
-@property (nonatomic, strong) NSButton *hannaHeaderVoiceButton;
-@property (nonatomic, strong) NSView *hannaVoiceHUD;
-@property (nonatomic, strong) NSTextField *hannaVoiceStatusLabel;
-@property (nonatomic, strong) NSTextField *hannaVoiceTranscriptLabel;
-@property (nonatomic, strong) NSMutableArray<NSView *> *hannaVoiceWaveBars;
-@property (nonatomic, strong) NSProgressIndicator *hannaSpinner;
-@property (nonatomic, strong) NSView *hannaTypingView;
+@property (nonatomic, strong) NSMutableArray<NSDictionary*> *alisaHistory;
+@property (nonatomic, strong) NSScrollView *alisaScrollView;
+@property (nonatomic, strong) NSTextView *alisaTextView;
+@property (nonatomic, strong) NSTextField *alisaInputField;
+@property (nonatomic, strong) NSButton *alisaSendButton;
+@property (nonatomic, strong) NSButton *alisaVoiceButton;
+@property (nonatomic, strong) NSButton *alisaHeaderVoiceButton;
+@property (nonatomic, strong) NSView *alisaVoiceHUD;
+@property (nonatomic, strong) NSTextField *alisaVoiceStatusLabel;
+@property (nonatomic, strong) NSTextField *alisaVoiceTranscriptLabel;
+@property (nonatomic, strong) NSMutableArray<NSView *> *alisaVoiceWaveBars;
+@property (nonatomic, strong) NSProgressIndicator *alisaSpinner;
+@property (nonatomic, strong) NSView *alisaTypingView;
 @property (nonatomic, strong) NSPopover *explainPopover;
 @property (nonatomic, strong) NSMutableDictionary *lastContextMenuInfo;
 @property (nonatomic, strong) NSButton *shieldButton;
@@ -66,8 +66,8 @@
 - (void)showShieldPopover:(id)sender;
 - (void)updateAvatarFromProfile;
 - (void)toggleAISidebar;
-- (void)hannaSend:(id)sender;
-- (void)explainSelectionWithHannaText:(NSString *)text targetRect:(NSRect)rect webView:(WKWebView *)wv;
+- (void)alisaSend:(id)sender;
+- (void)explainSelectionWithAlisaText:(NSString *)text targetRect:(NSRect)rect webView:(WKWebView *)wv;
 - (NSMenu *)buildCustomContextMenuForEvent:(NSEvent *)event webView:(WKWebView *)wv;
 - (instancetype)initWithURL:(NSURL *)url;
 - (instancetype)initWithURL:(NSURL *)url privateMode:(BOOL)privateMode;
@@ -77,8 +77,8 @@
 - (void)switchToTabAtIndex:(NSInteger)idx;
 - (void)closeTabView:(ChromeTabView *)tab;
 - (void)layoutTabs;
-@property (nonatomic, assign) BOOL hannaActMode;   // Hanna can drive the browser
-- (void)stopHannaAgent;
+@property (nonatomic, assign) BOOL alisaActMode;   // Alisa can drive the browser
+- (void)stopAlisaAgent;
 - (void)showUpdatePopover:(id)sender;
 - (void)showFeedbackSheet:(id)sender;
 - (void)offerDefaultBrowser;

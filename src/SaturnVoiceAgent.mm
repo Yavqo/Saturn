@@ -1,5 +1,5 @@
 #import "SaturnVoiceAgent.h"
-#import "HannaClient.h"
+#import "AlisaClient.h"
 #import <Accelerate/Accelerate.h>
 
 @interface SaturnVoiceAgent () <SFSpeechRecognizerDelegate, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate>
@@ -264,7 +264,7 @@
 
     NSMutableArray *messages = [NSMutableArray array];
     
-    NSString *systemPrompt = [NSString stringWithFormat:@"%@\n\nYou are speaking aloud inside the Saturn browser. Keep your responses natural, conversational, concise (1-3 sentences), warm, and direct for speech synthesis. Use no markdown, bullet points or symbols.", [HannaClient personaPrompt]];
+    NSString *systemPrompt = [NSString stringWithFormat:@"%@\n\nYou are speaking aloud inside the Saturn browser. Keep your responses natural, conversational, concise (1-3 sentences), warm, and direct for speech synthesis. Use no markdown, bullet points or symbols.", [AlisaClient personaPrompt]];
     if (_currentBrowserContext.length) {
         systemPrompt = [NSString stringWithFormat:@"%@\n\nBrowser context:\n%@", systemPrompt, _currentBrowserContext];
     }
@@ -345,7 +345,7 @@
     clean = [clean stringByReplacingOccurrencesOfString:@"\n\n" withString:@". "];
     if (!clean.length) return;
 
-    [self setState:SaturnVoiceAgentStateSpeaking statusMessage:@"Hanna speaking (fish-audio)…"];
+    [self setState:SaturnVoiceAgentStateSpeaking statusMessage:@"Alisa speaking (fish-audio)…"];
 
     NSString *voiceId = self.voiceId.length ? self.voiceId : @"5233336f5f44460ea0902b0802375451";
     NSString *apiKey = self.openRouterApiKey;

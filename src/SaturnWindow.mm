@@ -4,13 +4,13 @@
 #import "Settings.h"
 #import "SettingsWindow.h"
 #import "SaturnShield.h"
-#import "HannaClient.h"
+#import "AlisaClient.h"
 #import "SaturnDownloads.h"
 #import "SaturnBookmarks.h"
 #import "SaturnHistory.h"
 #import "SaturnSession.h"
 #import "SaturnPermissions.h"
-#import "HannaAgent.h"
+#import "AlisaAgent.h"
 #import "SaturnUpdater.h"
 #import "SaturnReporter.h"
 #import "SaturnDefaultBrowser.h"
@@ -67,7 +67,7 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 - (void)groupDragEnded:(NSView *)chip;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *closedTabs;
 @property (nonatomic, strong) SaturnSuggestView *suggestView;
-@property (nonatomic, strong) HannaAgent *hannaAgent;
+@property (nonatomic, strong) AlisaAgent *alisaAgent;
 @property (nonatomic, strong) NSButton *updateButton;
 @property (nonatomic, strong) NSButton *vaultKeyButton;
 @property (nonatomic, strong) NSButton *extensionsButton;
@@ -76,13 +76,13 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 @property (nonatomic, strong) NSButton *chatModeButton;
 @property (nonatomic, strong) NSButton *actModeButton;
 @property (nonatomic, strong) NSTextField *modeHint;
-@property (nonatomic, strong) NSView *hannaModeThumb;
-@property (nonatomic, strong) NSTextField *hannaContextLabel;
-@property (nonatomic, strong) NSView *hannaContextDot;
-@property (nonatomic, strong) NSView *hannaComposer;
-@property (nonatomic, strong) NSImageView *hannaSendIcon;
-- (void)updateHannaContext;
-- (void)updateHannaSendState;
+@property (nonatomic, strong) NSView *alisaModeThumb;
+@property (nonatomic, strong) NSTextField *alisaContextLabel;
+@property (nonatomic, strong) NSView *alisaContextDot;
+@property (nonatomic, strong) NSView *alisaComposer;
+@property (nonatomic, strong) NSImageView *alisaSendIcon;
+- (void)updateAlisaContext;
+- (void)updateAlisaSendState;
 @property (nonatomic, strong) NSView *agentBar;
 @property (nonatomic, strong) NSView *agentGlow;
 @property (nonatomic, strong) NSView *agentCursor;
@@ -120,6 +120,15 @@ static NSColor *Y_hover()           { return [NSColor colorWithWhite:0 alpha:0.0
 @property (nonatomic, strong) SaturnFindBar *findBar;
 @property (nonatomic, assign) NSInteger findIndex;
 @property (nonatomic, assign) NSInteger findCount;
+@property (nonatomic, assign) BOOL readerMode;
+@property (nonatomic, strong) NSView *readerContainer;
+@property (nonatomic, strong) WKWebView *readerWebView;
+@property (nonatomic, strong) NSView *readerToolbar;
+@property (nonatomic, copy) NSString *readerTitle;
+@property (nonatomic, copy) NSString *readerHTML;
+@property (nonatomic, copy) NSString *readerURL;
+@property (nonatomic, assign) NSInteger readerFontSize;
+@property (nonatomic, assign) BOOL readerWide;
 - (void)showFindBar:(id)sender;
 - (void)hideFindBar;
 - (void)findQueryChanged;
@@ -239,15 +248,15 @@ static BOOL SaturnIsSecretImageQuery(NSString *text) {
     return NO;
 }
 
-// Hanna's mark: a white star on an ink circle. Used for the header, replies, the empty state and the agent bar.
-static NSView *HannaAvatar(CGFloat size) {
+// Alisa's mark: a white star on an ink circle. Used for the header, replies, the empty state and the agent bar.
+static NSView *AlisaAvatar(CGFloat size) {
     NSView *disc = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, size, size)];
     disc.wantsLayer = YES;
     disc.layer.cornerRadius = size / 2;
     disc.layer.backgroundColor = Y_ink().CGColor;
     CGFloat s = round(size * 0.5);
     NSImageView *star = [[NSImageView alloc] initWithFrame:NSMakeRect((size - s) / 2, (size - s) / 2 + 0.5, s, s)];
-    star.image = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Hanna"];
+    star.image = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Alisa"];
     star.imageScaling = NSImageScaleProportionallyUpOrDown;
     star.contentTintColor = [NSColor whiteColor];
     [disc addSubview:star];
@@ -255,12 +264,12 @@ static NSView *HannaAvatar(CGFloat size) {
 }
 
 // Pill suggestion button (icon + label) with hover state. The prompt lives in `identifier`.
-@interface HannaPillButton : NSButton
+@interface AlisaPillButton : NSButton
 @property (nonatomic, strong) NSTrackingArea *hoverArea;
 @property (nonatomic, strong) NSColor *restColor;    // default white
 @property (nonatomic, strong) NSColor *hoverColor;   // default soft grey
 @end
-@implementation HannaPillButton
+@implementation AlisaPillButton
 - (NSView *)hitTest:(NSPoint)p { return NSPointInRect(p, self.frame) ? self : nil; }
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
@@ -272,23 +281,23 @@ static NSView *HannaAvatar(CGFloat size) {
 - (void)mouseExited:(NSEvent *)e { (void)e; self.layer.backgroundColor = (self.restColor ?: [NSColor whiteColor]).CGColor; }
 @end
 
-// The message field in Hanna's composer: tells the composer card when it gains or loses focus.
-@interface HannaComposerField : NSTextField
+// The message field in Alisa's composer: tells the composer card when it gains or loses focus.
+@interface AlisaComposerField : NSTextField
 @property (nonatomic, copy) void (^onFocus)(BOOL focused);
 @end
-@implementation HannaComposerField
+@implementation AlisaComposerField
 - (BOOL)becomeFirstResponder { BOOL ok = [super becomeFirstResponder]; if (ok && self.onFocus) self.onFocus(YES); return ok; }
 - (void)textDidEndEditing:(NSNotification *)n { [super textDidEndEditing:n]; if (self.onFocus) self.onFocus(NO); }
 @end
 
-// Empty state shown before the first message. Laid out full width by HannaChatDocView.
-@interface HannaEmptyState : NSView
+// Empty state shown before the first message. Laid out full width by AlisaChatDocView.
+@interface AlisaEmptyState : NSView
 @end
-@implementation HannaEmptyState
+@implementation AlisaEmptyState
 @end
 
-#pragma mark - Hanna Chat Document View (Flipped for top-to-bottom messages)
-@interface HannaChatDocView : NSView
+#pragma mark - Alisa Chat Document View (Flipped for top-to-bottom messages)
+@interface AlisaChatDocView : NSView
 @property (nonatomic, strong) NSMutableArray<NSView *> *messageViews;
 - (void)clearAll;
 - (void)addMessageView:(NSView *)view;
@@ -296,7 +305,7 @@ static NSView *HannaAvatar(CGFloat size) {
 - (void)relayout;
 @end
 
-@implementation HannaChatDocView {
+@implementation AlisaChatDocView {
     NSMutableArray<NSView *> *_messageViews;
     CGFloat _lastWidth;
 }
@@ -352,7 +361,7 @@ static NSView *HannaAvatar(CGFloat size) {
     for (NSView *v in _messageViews) {
         NSRect f = v.frame;
         f.origin.y = y;
-        if ([v.identifier isEqualToString:@"fullWidth"] || [v isKindOfClass:[HannaEmptyState class]]) {
+        if ([v.identifier isEqualToString:@"fullWidth"] || [v isKindOfClass:[AlisaEmptyState class]]) {
             f.origin.x = pad;
             f.size.width = W - (pad * 2);
         } else if ([v.identifier isEqualToString:@"userRow"]) {
@@ -438,8 +447,8 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
     return AttrForMarkdownColored(markdown, fontSize, [NSColor colorWithWhite:0.95 alpha:1.0], NO);
 }
 
-#pragma mark - Hanna Explain Bubble Controller (Floating explanation popup)
-@interface HannaExplainBubbleController : NSViewController
+#pragma mark - Alisa Explain Bubble Controller (Floating explanation popup)
+@interface AlisaExplainBubbleController : NSViewController
 @property (nonatomic, copy) NSString *selectedText;
 @property (nonatomic, copy) NSString *explanation;
 @property (nonatomic, copy) void (^onClose)(void);
@@ -448,7 +457,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
 - (void)showSecretImageURL:(NSString *)imageURL caption:(NSString *)caption;
 @end
 
-@implementation HannaExplainBubbleController {
+@implementation AlisaExplainBubbleController {
     NSVisualEffectView *_rootEffectView;
     NSTextField *_quoteLabel;
     NSView *_loadingView;
@@ -497,7 +506,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
     iconLabel.frame = NSMakeRect(14, H - 30, 18, 20);
     [_rootEffectView addSubview:iconLabel];
 
-    NSTextField *titleLabel = [NSTextField labelWithString:@"Hanna Explains"];
+    NSTextField *titleLabel = [NSTextField labelWithString:@"Alisa Explains"];
     titleLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     titleLabel.textColor = Y_ink();
     titleLabel.frame = NSMakeRect(34, H - 30, 200, 20);
@@ -546,7 +555,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
     [_spinner startAnimation:nil];
     [_loadingView addSubview:_spinner];
 
-    _loadingLabel = [NSTextField labelWithString:@"Explaining with Hanna…"];
+    _loadingLabel = [NSTextField labelWithString:@"Explaining with Alisa…"];
     _loadingLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     _loadingLabel.textColor = Y_muted();
     _loadingLabel.alignment = NSTextAlignmentCenter;
@@ -645,7 +654,7 @@ static NSAttributedString *AttrForMarkdown(NSString *markdown, CGFloat fontSize)
         for (NSView *v in self.view.subviews) {
             if ([v isKindOfClass:[NSTextField class]] && [(NSTextField *)v stringValue] && [[(NSTextField *)v stringValue] isEqualToString:@"✦"]) {
                 v.frame = NSMakeRect(14, H - 30, 18, 20);
-            } else if ([v isKindOfClass:[NSTextField class]] && [(NSTextField *)v stringValue] && [[(NSTextField *)v stringValue] isEqualToString:@"Hanna Explains"]) {
+            } else if ([v isKindOfClass:[NSTextField class]] && [(NSTextField *)v stringValue] && [[(NSTextField *)v stringValue] isEqualToString:@"Alisa Explains"]) {
                 v.frame = NSMakeRect(34, H - 30, 200, 20);
             }
         }
@@ -2410,6 +2419,12 @@ static void YRing(NSView *box, BOOL on) {
     }
     [self layoutTabs];
     [self alignTrafficLights];
+    if (self.readerContainer) {
+        CGFloat webH = H - tabBarH - toolbarH - bookmarksH - progressH;
+        self.readerContainer.frame = NSMakeRect(0, 0, W, webH);
+        self.readerToolbar.frame = NSMakeRect(0, webH - 44, W, 44);
+        self.readerWebView.frame = NSMakeRect(0, 0, W, webH - 44);
+    }
     [self layoutFindBar];
     [self rebuildFavoritesBar];
     [self layoutSuggestions];
@@ -2554,7 +2569,7 @@ static void YRing(NSView *box, BOOL on) {
     __weak typeof(self) weakVaultSelf = self;
     self.vaultAutofill = [[SaturnVaultAutofill alloc] initWithKeyButton:keyBtn privateWindow:self.isPrivate currentWebView:^WKWebView *{ return weakVaultSelf.webView; }];
 
-    // Right cluster pinned to trailing edge: share + sidebar + Hanna + settings + avatar (Safari-style)
+    // Right cluster pinned to trailing edge: share + sidebar + Alisa + settings + avatar (Safari-style)
     CGFloat (^rx)(CGFloat) = ^CGFloat(CGFloat off){ return W0 - off; };
     NSButton *shareBtn = SaturnPlainButton(@"exclamationmark.bubble", @selector(showFeedbackSheet:), self, NSMakeRect(rx(188), 11, 34, 34), 15);
     shareBtn.autoresizingMask = NSViewMinXMargin;
@@ -2607,7 +2622,7 @@ static void YRing(NSView *box, BOOL on) {
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStateChanged:) name:SaturnUpdateStateChangedNotification object:nil];
     [self updateUpdateButton];
 
-    // Hanna AI Assistant button — compact violet key
+    // Alisa AI Assistant button — compact violet key
     NSButton *aiBtn = [NSButton buttonWithTitle:@"" target:self action:@selector(toggleAISidebar)];
     aiBtn.frame = NSMakeRect(rx(108), 14, 28, 28);
     aiBtn.bezelStyle = NSBezelStyleCircular;
@@ -2617,10 +2632,10 @@ static void YRing(NSView *box, BOOL on) {
     aiBtn.layer.masksToBounds = NO;
     aiBtn.layer.backgroundColor = [NSColor clearColor].CGColor;
     aiBtn.autoresizingMask = NSViewMinXMargin;
-    aiBtn.toolTip = @"✦ Hanna AI Assistant (⌘I)";
+    aiBtn.toolTip = @"✦ Alisa AI Assistant (⌘I)";
     self.aiButton = aiBtn;
 
-    NSImage *aiImg = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Hanna"];
+    NSImage *aiImg = [NSImage imageWithSystemSymbolName:@"star.fill" accessibilityDescription:@"Alisa"];
     if (aiImg) { aiImg.size = NSMakeSize(14, 14); [aiImg setTemplate:YES]; }
     aiBtn.image = aiImg;
     aiBtn.imagePosition = NSImageOnly;
@@ -2716,23 +2731,23 @@ static void YRing(NSView *box, BOOL on) {
     self.aiSidebarVisible = NO;
     [content addSubview:sidebar positioned:NSWindowAbove relativeTo:nil];
 
-    self.hannaHistory = [NSMutableArray array];
+    self.alisaHistory = [NSMutableArray array];
 
     // === Layout constants (relative to the card) ===
     const CGFloat pad = 18, headerH = 76, modeH = 84, inputY = 38, inputH = 54;
     CGFloat scrollBottom = inputY + inputH + 12;
     CGFloat scrollH = MAX(100, cardH - headerH - modeH - scrollBottom);
 
-    // === Header: mark, name, the page Hanna can see, new chat and close ===
+    // === Header: mark, name, the page Alisa can see, new chat and close ===
     NSView *dragHeader = [[NSView alloc] initWithFrame:NSMakeRect(0, cardH - headerH, sidebarW, headerH)];
     dragHeader.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin;
     [sidebar addSubview:dragHeader];
 
-    NSView *mark = HannaAvatar(40);
+    NSView *mark = AlisaAvatar(40);
     mark.frame = NSMakeRect(pad, 22, 40, 40);
     [dragHeader addSubview:mark];
 
-    NSTextField *aiTitle = [NSTextField labelWithString:@"Hanna"];
+    NSTextField *aiTitle = [NSTextField labelWithString:@"Alisa"];
     aiTitle.font = [NSFont systemFontOfSize:20 weight:NSFontWeightMedium];
     aiTitle.textColor = Y_ink();
     aiTitle.frame = NSMakeRect(pad + 52, 40, 160, 26);
@@ -2743,21 +2758,21 @@ static void YRing(NSView *box, BOOL on) {
     ctxDot.layer.cornerRadius = 3;
     ctxDot.layer.backgroundColor = Y_positive().CGColor;
     [dragHeader addSubview:ctxDot];
-    self.hannaContextDot = ctxDot;
+    self.alisaContextDot = ctxDot;
     NSTextField *ctxLabel = [NSTextField labelWithString:@"No page open"];
     ctxLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
     ctxLabel.textColor = Y_muted();
     ctxLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
     ctxLabel.frame = NSMakeRect(pad + 65, 22, 170, 16);
     [dragHeader addSubview:ctxLabel];
-    self.hannaContextLabel = ctxLabel;
+    self.alisaContextLabel = ctxLabel;
 
     NSButton *closeBtn = SaturnPlainButton(@"xmark", @selector(toggleAISidebar), self, NSMakeRect(sidebarW - pad - 34, 26, 34, 34), 14);
     closeBtn.toolTip = @"Close (⌘I)";
-    [closeBtn setAccessibilityLabel:@"Close Hanna"];
+    [closeBtn setAccessibilityLabel:@"Close Alisa"];
     closeBtn.autoresizingMask = NSViewMinXMargin;
     [dragHeader addSubview:closeBtn];
-    NSButton *newChatBtn = SaturnPlainButton(@"square.and.pencil", @selector(hannaNewChat:), self, NSMakeRect(sidebarW - pad - 34 - 38, 26, 34, 34), 14);
+    NSButton *newChatBtn = SaturnPlainButton(@"square.and.pencil", @selector(alisaNewChat:), self, NSMakeRect(sidebarW - pad - 34 - 38, 26, 34, 34), 14);
     newChatBtn.toolTip = @"New chat";
     [newChatBtn setAccessibilityLabel:@"New chat"];
     newChatBtn.autoresizingMask = NSViewMinXMargin;
@@ -2780,15 +2795,15 @@ static void YRing(NSView *box, BOOL on) {
     thumb.layer.borderWidth = 1;
     thumb.layer.borderColor = Y_hairline().CGColor;
     [seg addSubview:thumb];
-    self.hannaModeThumb = thumb;
+    self.alisaModeThumb = thumb;
     NSArray *segTitles = @[@"Ask", @"Browse"];
     for (NSInteger i = 0; i < 2; i++) {
         NSButton *b = [[NSButton alloc] initWithFrame:NSMakeRect(3 + i * (segW - 6) / 2, 3, (segW - 6) / 2, 32)];
         b.bordered = NO;
         b.tag = i;
         b.target = self;
-        b.action = @selector(setHannaMode:);
-        b.toolTip = i == 0 ? @"Ask Hanna questions about the page" : @"Let Hanna click, type and open pages for you";
+        b.action = @selector(setAlisaMode:);
+        b.toolTip = i == 0 ? @"Ask Alisa questions about the page" : @"Let Alisa click, type and open pages for you";
         b.title = segTitles[i];
         b.imagePosition = NSImageLeft;
         b.imageHugsTitle = YES;
@@ -2802,7 +2817,7 @@ static void YRing(NSView *box, BOOL on) {
     self.modeHint.lineBreakMode = NSLineBreakByTruncatingTail;
     self.modeHint.frame = NSMakeRect(pad, 14, sidebarW - 2 * pad, 16);
     [modeBar addSubview:self.modeHint];
-    [self applyHannaMode];
+    [self applyAlisaMode];
 
     // === Conversation ===
     NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(10, scrollBottom, sidebarW - 20, scrollH)];
@@ -2815,10 +2830,10 @@ static void YRing(NSView *box, BOOL on) {
     scroll.backgroundColor = [NSColor clearColor];
     scroll.contentView.drawsBackground = NO;
     scroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    HannaChatDocView *docView = [[HannaChatDocView alloc] initWithFrame:NSMakeRect(0, 0, scroll.contentSize.width, scroll.contentSize.height)];
+    AlisaChatDocView *docView = [[AlisaChatDocView alloc] initWithFrame:NSMakeRect(0, 0, scroll.contentSize.width, scroll.contentSize.height)];
     docView.autoresizingMask = NSViewWidthSizable;
     scroll.documentView = docView;
-    self.hannaScrollView = scroll;
+    self.alisaScrollView = scroll;
     [sidebar addSubview:scroll];
 
     // === Voice HUD (soft card with live wave bars) ===
@@ -2829,35 +2844,35 @@ static void YRing(NSView *box, BOOL on) {
     voiceHUD.layer.backgroundColor = Y_soft().CGColor;
     voiceHUD.hidden = YES;
     voiceHUD.autoresizingMask = NSViewWidthSizable;
-    self.hannaVoiceHUD = voiceHUD;
+    self.alisaVoiceHUD = voiceHUD;
     [sidebar addSubview:voiceHUD];
 
     NSView *waveBox = [[NSView alloc] initWithFrame:NSMakeRect(20, 13, 34, 34)];
-    self.hannaVoiceWaveBars = [NSMutableArray array];
+    self.alisaVoiceWaveBars = [NSMutableArray array];
     for (int i = 0; i < 5; i++) {
         NSView *bar = [[NSView alloc] initWithFrame:NSMakeRect(i * 7, 13, 4, 8)];
         bar.wantsLayer = YES;
         bar.layer.cornerRadius = 2;
         bar.layer.backgroundColor = Y_blue().CGColor;
         [waveBox addSubview:bar];
-        [self.hannaVoiceWaveBars addObject:bar];
+        [self.alisaVoiceWaveBars addObject:bar];
     }
     [voiceHUD addSubview:waveBox];
 
-    self.hannaVoiceStatusLabel = [NSTextField labelWithString:@"Listening…"];
-    self.hannaVoiceStatusLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightBold];
-    self.hannaVoiceStatusLabel.textColor = Y_ink();
-    self.hannaVoiceStatusLabel.frame = NSMakeRect(62, 31, voiceHUD.bounds.size.width - 104, 18);
-    self.hannaVoiceStatusLabel.autoresizingMask = NSViewWidthSizable;
-    [voiceHUD addSubview:self.hannaVoiceStatusLabel];
+    self.alisaVoiceStatusLabel = [NSTextField labelWithString:@"Listening…"];
+    self.alisaVoiceStatusLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightBold];
+    self.alisaVoiceStatusLabel.textColor = Y_ink();
+    self.alisaVoiceStatusLabel.frame = NSMakeRect(62, 31, voiceHUD.bounds.size.width - 104, 18);
+    self.alisaVoiceStatusLabel.autoresizingMask = NSViewWidthSizable;
+    [voiceHUD addSubview:self.alisaVoiceStatusLabel];
 
-    self.hannaVoiceTranscriptLabel = [NSTextField labelWithString:@"Say something to Hanna…"];
-    self.hannaVoiceTranscriptLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
-    self.hannaVoiceTranscriptLabel.textColor = Y_muted();
-    self.hannaVoiceTranscriptLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    self.hannaVoiceTranscriptLabel.frame = NSMakeRect(62, 11, voiceHUD.bounds.size.width - 104, 16);
-    self.hannaVoiceTranscriptLabel.autoresizingMask = NSViewWidthSizable;
-    [voiceHUD addSubview:self.hannaVoiceTranscriptLabel];
+    self.alisaVoiceTranscriptLabel = [NSTextField labelWithString:@"Say something to Alisa…"];
+    self.alisaVoiceTranscriptLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
+    self.alisaVoiceTranscriptLabel.textColor = Y_muted();
+    self.alisaVoiceTranscriptLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    self.alisaVoiceTranscriptLabel.frame = NSMakeRect(62, 11, voiceHUD.bounds.size.width - 104, 16);
+    self.alisaVoiceTranscriptLabel.autoresizingMask = NSViewWidthSizable;
+    [voiceHUD addSubview:self.alisaVoiceTranscriptLabel];
 
     NSButton *hudStop = [NSButton buttonWithImage:[NSImage imageWithSystemSymbolName:@"xmark" accessibilityDescription:@"Stop"] target:self action:@selector(toggleVoiceAgent:)];
     hudStop.frame = NSMakeRect(voiceHUD.bounds.size.width - 46, 14, 32, 32);
@@ -2879,10 +2894,10 @@ static void YRing(NSView *box, BOOL on) {
     composer.layer.borderWidth = 1;
     composer.autoresizingMask = NSViewWidthSizable;
     [sidebar addSubview:composer];
-    self.hannaComposer = composer;
+    self.alisaComposer = composer;
     CGFloat inW = composer.bounds.size.width;
 
-    HannaComposerField *field = [[HannaComposerField alloc] initWithFrame:NSMakeRect(22, 17, inW - 22 - 100, 20)];
+    AlisaComposerField *field = [[AlisaComposerField alloc] initWithFrame:NSMakeRect(22, 17, inW - 22 - 100, 20)];
     field.usesSingleLineMode = YES;
     field.bezeled = NO;
     field.drawsBackground = NO;
@@ -2891,49 +2906,49 @@ static void YRing(NSView *box, BOOL on) {
     field.textColor = Y_ink();
     field.delegate = self;
     field.target = self;
-    field.action = @selector(hannaSend:);
+    field.action = @selector(alisaSend:);
     field.autoresizingMask = NSViewWidthSizable;
     __weak typeof(self) weakSelf = self;
     field.onFocus = ^(BOOL focused) {
-        NSView *c = weakSelf.hannaComposer;
+        NSView *c = weakSelf.alisaComposer;
         c.layer.borderColor = (focused ? Y_blue() : Y_border()).CGColor;
         c.layer.borderWidth = focused ? 1.5 : 1;
     };
-    self.hannaInputField = field;
+    self.alisaInputField = field;
     [composer addSubview:field];
-    [self applyHannaMode];   // sets the placeholder now that the field exists
+    [self applyAlisaMode];   // sets the placeholder now that the field exists
 
-    self.hannaVoiceButton = [NSButton buttonWithImage:Y_symbol(@"mic.fill", 14, NSFontWeightMedium) target:self action:@selector(toggleVoiceAgent:)];
-    self.hannaVoiceButton.frame = NSMakeRect(inW - 94, 9, 36, 36);
-    self.hannaVoiceButton.bezelStyle = NSBezelStyleCircular;
-    self.hannaVoiceButton.bordered = NO;
-    self.hannaVoiceButton.wantsLayer = YES;
-    self.hannaVoiceButton.layer.backgroundColor = Y_soft().CGColor;
-    self.hannaVoiceButton.layer.cornerRadius = 18;
-    self.hannaVoiceButton.contentTintColor = Y_ink();
-    self.hannaVoiceButton.toolTip = @"Talk to Hanna";
-    [self.hannaVoiceButton setAccessibilityLabel:@"Talk to Hanna"];
-    self.hannaVoiceButton.autoresizingMask = NSViewMinXMargin;
-    [composer addSubview:self.hannaVoiceButton];
+    self.alisaVoiceButton = [NSButton buttonWithImage:Y_symbol(@"mic.fill", 14, NSFontWeightMedium) target:self action:@selector(toggleVoiceAgent:)];
+    self.alisaVoiceButton.frame = NSMakeRect(inW - 94, 9, 36, 36);
+    self.alisaVoiceButton.bezelStyle = NSBezelStyleCircular;
+    self.alisaVoiceButton.bordered = NO;
+    self.alisaVoiceButton.wantsLayer = YES;
+    self.alisaVoiceButton.layer.backgroundColor = Y_soft().CGColor;
+    self.alisaVoiceButton.layer.cornerRadius = 18;
+    self.alisaVoiceButton.contentTintColor = Y_ink();
+    self.alisaVoiceButton.toolTip = @"Talk to Alisa";
+    [self.alisaVoiceButton setAccessibilityLabel:@"Talk to Alisa"];
+    self.alisaVoiceButton.autoresizingMask = NSViewMinXMargin;
+    [composer addSubview:self.alisaVoiceButton];
 
-    self.hannaSendButton = [NSButton buttonWithTitle:@"" target:self action:@selector(hannaSend:)];
-    self.hannaSendButton.frame = NSMakeRect(inW - 50, 9, 36, 36);
-    self.hannaSendButton.bezelStyle = NSBezelStyleCircular;
-    self.hannaSendButton.bordered = NO;
-    self.hannaSendButton.wantsLayer = YES;
-    self.hannaSendButton.layer.cornerRadius = 18;
-    self.hannaSendButton.toolTip = @"Send (Return)";
-    [self.hannaSendButton setAccessibilityLabel:@"Send"];
+    self.alisaSendButton = [NSButton buttonWithTitle:@"" target:self action:@selector(alisaSend:)];
+    self.alisaSendButton.frame = NSMakeRect(inW - 50, 9, 36, 36);
+    self.alisaSendButton.bezelStyle = NSBezelStyleCircular;
+    self.alisaSendButton.bordered = NO;
+    self.alisaSendButton.wantsLayer = YES;
+    self.alisaSendButton.layer.cornerRadius = 18;
+    self.alisaSendButton.toolTip = @"Send (Return)";
+    [self.alisaSendButton setAccessibilityLabel:@"Send"];
     NSImageView *arrow = [[NSImageView alloc] initWithFrame:NSMakeRect(9, 9, 18, 18)];
     arrow.image = Y_symbol(@"arrow.up", 14, NSFontWeightBold);
     arrow.imageScaling = NSImageScaleProportionallyDown;
-    [self.hannaSendButton addSubview:arrow];
-    self.hannaSendIcon = arrow;
-    self.hannaSendButton.autoresizingMask = NSViewMinXMargin;
-    [composer addSubview:self.hannaSendButton];
-    [self updateHannaSendState];
+    [self.alisaSendButton addSubview:arrow];
+    self.alisaSendIcon = arrow;
+    self.alisaSendButton.autoresizingMask = NSViewMinXMargin;
+    [composer addSubview:self.alisaSendButton];
+    [self updateAlisaSendState];
 
-    NSTextField *footnote = [NSTextField labelWithString:@"Hanna can make mistakes. Check important info."];
+    NSTextField *footnote = [NSTextField labelWithString:@"Alisa can make mistakes. Check important info."];
     footnote.font = [NSFont systemFontOfSize:11];
     footnote.textColor = Y_muted2();
     footnote.alignment = NSTextAlignmentCenter;
@@ -2942,16 +2957,16 @@ static void YRing(NSView *box, BOOL on) {
     [sidebar addSubview:footnote];
 
     // Spinner (kept for state; the typing dots are the visible indicator)
-    self.hannaSpinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(sidebarW/2 - 12, cardH/2 - 12, 24, 24)];
-    self.hannaSpinner.style = NSProgressIndicatorStyleSpinning;
-    self.hannaSpinner.controlSize = NSControlSizeSmall;
-    self.hannaSpinner.displayedWhenStopped = NO;
-    self.hannaSpinner.hidden = YES;
-    self.hannaSpinner.alphaValue = 0;
-    [sidebar addSubview:self.hannaSpinner];
+    self.alisaSpinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(sidebarW/2 - 12, cardH/2 - 12, 24, 24)];
+    self.alisaSpinner.style = NSProgressIndicatorStyleSpinning;
+    self.alisaSpinner.controlSize = NSControlSizeSmall;
+    self.alisaSpinner.displayedWhenStopped = NO;
+    self.alisaSpinner.hidden = YES;
+    self.alisaSpinner.alphaValue = 0;
+    [sidebar addSubview:self.alisaSpinner];
 
     // Initialize with welcome message & action chips
-    [self hannaNewChat:nil];
+    [self alisaNewChat:nil];
 
     [self updateNavButtons];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(addressBarDidBecomeFirstResponder:) name:NSControlTextDidBeginEditingNotification object:self.addressBar];
@@ -3177,28 +3192,28 @@ static void YRing(NSView *box, BOOL on) {
     self.addressBar.placeholderString = ph;
     ((NSTextFieldCell *)self.addressBar.cell).placeholderAttributedString = [[NSAttributedString alloc] initWithString:ph attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
 }
-- (void)hannaNewChat:(id)sender {
+- (void)alisaNewChat:(id)sender {
     (void)sender;
-    if (self.hannaAgent.running) { NSBeep(); return; }
+    if (self.alisaAgent.running) { NSBeep(); return; }
     self.taskTimeline = nil;
-    [self.hannaHistory removeAllObjects];
-    NSScrollView *scroll = self.hannaScrollView;
-    HannaChatDocView *doc = (HannaChatDocView *)scroll.documentView;
-    if (![doc isKindOfClass:[HannaChatDocView class]]) return;
+    [self.alisaHistory removeAllObjects];
+    NSScrollView *scroll = self.alisaScrollView;
+    AlisaChatDocView *doc = (AlisaChatDocView *)scroll.documentView;
+    if (![doc isKindOfClass:[AlisaChatDocView class]]) return;
 
     [doc clearAll];
-    [doc addMessageView:[self hannaEmptyStateWithWidth:scroll.contentSize.width - 12]];
+    [doc addMessageView:[self alisaEmptyStateWithWidth:scroll.contentSize.width - 12]];
 
     [scroll.contentView scrollToPoint:NSMakePoint(0, 0)];
     [scroll reflectScrolledClipView:scroll.contentView];
 
-    self.hannaInputField.stringValue = @"";
-    [self updateHannaSendState];
-    [self.hannaInputField becomeFirstResponder];
+    self.alisaInputField.stringValue = @"";
+    [self updateAlisaSendState];
+    [self.alisaInputField becomeFirstResponder];
 }
 
-// The page Hanna is looking at, for the header and the greeting.
-- (NSString *)hannaContextHost {
+// The page Alisa is looking at, for the header and the greeting.
+- (NSString *)alisaContextHost {
     NSURL *u = self.webView.URL;
     if (!u) return nil;
     if ([u.scheme isEqualToString:@"saturn"]) return @"a Saturn page";
@@ -3207,44 +3222,44 @@ static void YRing(NSView *box, BOOL on) {
     return h.length ? h : nil;
 }
 
-- (void)updateHannaContext {
-    NSString *host = [self hannaContextHost];
-    self.hannaContextLabel.stringValue = host ? [@"Reading " stringByAppendingString:host] : @"No page open";
-    self.hannaContextDot.layer.backgroundColor = (host ? Y_positive() : Y_muted2()).CGColor;
+- (void)updateAlisaContext {
+    NSString *host = [self alisaContextHost];
+    self.alisaContextLabel.stringValue = host ? [@"Reading " stringByAppendingString:host] : @"No page open";
+    self.alisaContextDot.layer.backgroundColor = (host ? Y_positive() : Y_muted2()).CGColor;
 }
 
-- (void)updateHannaSendState {
-    BOOL has = [[self.hannaInputField.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] length] > 0;
-    BOOL on = has && self.hannaSendButton.enabled;
-    self.hannaSendButton.layer.backgroundColor = (on ? Y_blue() : Y_soft()).CGColor;
-    self.hannaSendIcon.contentTintColor = on ? [NSColor whiteColor] : Y_muted2();
+- (void)updateAlisaSendState {
+    BOOL has = [[self.alisaInputField.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] length] > 0;
+    BOOL on = has && self.alisaSendButton.enabled;
+    self.alisaSendButton.layer.backgroundColor = (on ? Y_blue() : Y_soft()).CGColor;
+    self.alisaSendIcon.contentTintColor = on ? [NSColor whiteColor] : Y_muted2();
 }
 
 // Greeting + suggestion rows, shown until the first message is sent.
-- (NSView *)hannaEmptyStateWithWidth:(CGFloat)width {
+- (NSView *)alisaEmptyStateWithWidth:(CGFloat)width {
     NSArray<NSArray<NSString *> *> *prompts = self.pageActions ?: @[
         @[@"doc.text", @"Summarize this page"],
         @[@"list.bullet", @"Key takeaways"],
         @[@"square.on.square", @"What tabs do I have open?"],
         @[@"lightbulb", @"Explain it simply"],
     ];
-    if (self.hannaActMode) {
+    if (self.alisaActMode) {
         prompts = @[prompts[0], prompts[1], @[@"tablecells", @"Extract tables from this page"], @[@"text.cursor", @"Read my selected text"]];
     }
-    NSString *host = [self hannaContextHost];
+    NSString *host = [self alisaContextHost];
     NSUInteger tabCount = self.tabs.count;
     (void)tabCount;
     NSString *subText = host ? [NSString stringWithFormat:@"I can see %@ and your open tabs.", host] : @"I can see your open tabs.";
     const CGFloat avatar = 52, rowH = 50, gap = 8, topPad = 28, titleH = 34, subH = 40;
     CGFloat total = topPad + avatar + 14 + titleH + 2 + subH + 18 + prompts.count * rowH + (prompts.count - 1) * gap;
 
-    HannaEmptyState *root = [[HannaEmptyState alloc] initWithFrame:NSMakeRect(0, 0, width, total)];
+    AlisaEmptyState *root = [[AlisaEmptyState alloc] initWithFrame:NSMakeRect(0, 0, width, total)];
     root.identifier = @"fullWidth";
     root.autoresizingMask = NSViewWidthSizable;
 
     // Top-down layout converted to AppKit's bottom-up coordinates
     CGFloat y = total - topPad - avatar;
-    NSView *av = HannaAvatar(avatar);
+    NSView *av = AlisaAvatar(avatar);
     av.frame = NSMakeRect((width - avatar) / 2, y, avatar, avatar);
     av.autoresizingMask = NSViewMinXMargin | NSViewMaxXMargin;
     [root addSubview:av];
@@ -3270,11 +3285,11 @@ static void YRing(NSView *box, BOOL on) {
     y -= 18;
     for (NSArray<NSString *> *p in prompts) {
         y -= rowH;
-        HannaPillButton *row = [[HannaPillButton alloc] initWithFrame:NSMakeRect(0, y, width, rowH)];
+        AlisaPillButton *row = [[AlisaPillButton alloc] initWithFrame:NSMakeRect(0, y, width, rowH)];
         row.title = @"";
         row.bordered = NO;
         row.target = self;
-        row.action = @selector(hannaActionChipTapped:);
+        row.action = @selector(alisaActionChipTapped:);
         row.identifier = p[1];
         row.restColor = Y_soft();
         row.hoverColor = [NSColor colorWithSRGBRed:0xE4/255.0 green:0xE9/255.0 blue:0xEE/255.0 alpha:1];
@@ -3314,11 +3329,11 @@ static void YRing(NSView *box, BOOL on) {
     return root;
 }
 
-- (void)hannaActionChipTapped:(NSButton *)sender {
+- (void)alisaActionChipTapped:(NSButton *)sender {
     NSString *prompt = sender.identifier ?: sender.title ?: @"";
     if (prompt.length) {
-        self.hannaInputField.stringValue = prompt;
-        [self hannaSend:nil];
+        self.alisaInputField.stringValue = prompt;
+        [self alisaSend:nil];
     }
 }
 
@@ -3326,7 +3341,7 @@ static void YRing(NSView *box, BOOL on) {
 - (void)refreshPageActions {
     WKWebView *page = self.webView;
     if (!page) return;
-    [self updateHannaContext];
+    [self updateAlisaContext];
     NSUInteger generation = ++self.pageActionGeneration;
     NSString *url = page.URL.absoluteString ?: @"";
     NSString *script = @"JSON.stringify({title:document.title,text:(document.body?.innerText||'').slice(0,12000),article:!!document.querySelector('article'),product:!!document.querySelector('[itemtype*=Product],meta[property=\"og:type\"][content=product]'),query:new URL(location.href).searchParams.has('q')})";
@@ -3356,10 +3371,10 @@ static void YRing(NSView *box, BOOL on) {
         [actions addObject:@[@"lightbulb", @"Explain it simply"]];
         [actions addObject:@[@"square.on.square", @"What tabs do I have open?"]];
         w.pageActions = actions;
-        HannaChatDocView *doc = (HannaChatDocView *)w.hannaScrollView.documentView;
-        for (NSView *view in [doc.messageViews copy]) if ([view isKindOfClass:HannaEmptyState.class]) {
+        AlisaChatDocView *doc = (AlisaChatDocView *)w.alisaScrollView.documentView;
+        for (NSView *view in [doc.messageViews copy]) if ([view isKindOfClass:AlisaEmptyState.class]) {
             [doc removeMessageView:view];
-            [doc addMessageView:[w hannaEmptyStateWithWidth:w.hannaScrollView.contentSize.width - 12]];
+            [doc addMessageView:[w alisaEmptyStateWithWidth:w.alisaScrollView.contentSize.width - 12]];
         }
     }];
 }
@@ -3387,7 +3402,7 @@ static void YRing(NSView *box, BOOL on) {
         scroll.hasVerticalScroller = YES;
         scroll.autohidesScrollers = YES;
         scroll.drawsBackground = NO;
-        self.tabOverviewGrid = [[HannaChatDocView alloc] initWithFrame:scroll.bounds];
+        self.tabOverviewGrid = [[AlisaChatDocView alloc] initWithFrame:scroll.bounds];
         scroll.documentView = self.tabOverviewGrid;
         self.tabOverviewScroll = scroll;
         [panel.contentView addSubview:scroll];
@@ -3417,7 +3432,7 @@ static void YRing(NSView *box, BOOL on) {
         WKWebView *web = self.tabWebViews[i];
         NSString *url = (tab.pendingURL ?: web.URL).absoluteString ?: @"";
         if (query.length && [tab.title rangeOfString:query options:NSCaseInsensitiveSearch].location == NSNotFound && [url rangeOfString:query options:NSCaseInsensitiveSearch].location == NSNotFound) continue;
-        NSButton *card = [[HannaPillButton alloc] initWithFrame:NSMakeRect((count % 3) * 224, (count / 3) * 190, 212, 178)];
+        NSButton *card = [[AlisaPillButton alloc] initWithFrame:NSMakeRect((count % 3) * 224, (count / 3) * 190, 212, 178)];
         card.title = @""; card.bordered = NO;
         card.target = self; card.action = @selector(chooseOverviewTab:);
         objc_setAssociatedObject(card, @selector(chooseOverviewTab:), tab, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -3459,21 +3474,21 @@ static void YRing(NSView *box, BOOL on) {
     [self.tabOverviewScroll reflectScrolledClipView:self.tabOverviewScroll.contentView];
 }
 
-#pragma mark - Hanna Markdown + Typing
+#pragma mark - Alisa Markdown + Typing
 
-- (NSAttributedString *)hannaAttrForMarkdown:(NSString *)markdown {
+- (NSAttributedString *)alisaAttrForMarkdown:(NSString *)markdown {
     return AttrForMarkdownColored(markdown, 14, Y_ink(), YES);
 }
 
-- (void)showHannaTyping:(BOOL)show {
+- (void)showAlisaTyping:(BOOL)show {
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSScrollView *scroll = self.hannaScrollView;
-        HannaChatDocView *doc = (HannaChatDocView *)scroll.documentView;
-        if (![doc isKindOfClass:[HannaChatDocView class]]) return;
+        NSScrollView *scroll = self.alisaScrollView;
+        AlisaChatDocView *doc = (AlisaChatDocView *)scroll.documentView;
+        if (![doc isKindOfClass:[AlisaChatDocView class]]) return;
 
         NSView *existing = nil;
         for (NSView *v in doc.messageViews) {
-            if ([v.identifier isEqualToString:@"hannaTypingRow"]) {
+            if ([v.identifier isEqualToString:@"alisaTypingRow"]) {
                 existing = v;
                 break;
             }
@@ -3484,7 +3499,7 @@ static void YRing(NSView *box, BOOL on) {
 
             NSView *row = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 100, 32)];
 
-            NSView *av = HannaAvatar(24);
+            NSView *av = AlisaAvatar(24);
             av.frame = NSMakeRect(0, 4, 24, 24);
             [row addSubview:av];
 
@@ -3511,7 +3526,7 @@ static void YRing(NSView *box, BOOL on) {
             }
 
             [row addSubview:bubble];
-            row.identifier = @"hannaTypingRow";
+            row.identifier = @"alisaTypingRow";
             [doc addMessageView:row];
 
             CGFloat maxY = MAX(0, doc.frame.size.height - scroll.contentView.bounds.size.height);
@@ -3525,13 +3540,13 @@ static void YRing(NSView *box, BOOL on) {
     });
 }
 
-- (void)animateHannaDots {
+- (void)animateAlisaDots {
     // No longer used — dots are animated when typing bubble is created
 }
 
-- (void)hannaPromptTapped:(id)sender {
-    self.hannaInputField.stringValue = @"organize your tabs!";
-    [self hannaSend:nil];
+- (void)alisaPromptTapped:(id)sender {
+    self.alisaInputField.stringValue = @"organize your tabs!";
+    [self alisaSend:nil];
 }
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -3689,7 +3704,7 @@ static void YRing(NSView *box, BOOL on) {
 - (void)selectPreviousTab:(id)sender { (void)sender; [self stepTab:-1]; }
 - (void)hardReload:(id)sender { (void)sender; [self.webView reloadFromOrigin]; }
 - (void)stopLoadingPage:(id)sender { (void)sender; [self.webView stopLoading]; }
-- (void)toggleHanna:(id)sender { (void)sender; [self toggleAISidebar]; }
+- (void)toggleAlisa:(id)sender { (void)sender; [self toggleAISidebar]; }
 - (void)bookmarkPage:(id)sender { [self star:sender]; }
 - (void)togglePinActiveTab:(id)sender {
     (void)sender;
@@ -3953,10 +3968,10 @@ static void YRing(NSView *box, BOOL on) {
     if (target.length) [self navigateToString:target];
 }
 
-#pragma mark Hanna Act mode (browser control)
+#pragma mark Alisa Act mode (browser control)
 
-- (void)applyHannaMode {
-    BOOL act = self.hannaActMode;
+- (void)applyAlisaMode {
+    BOOL act = self.alisaActMode;
     NSArray<NSButton *> *btns = @[self.chatModeButton, self.actModeButton];
     NSArray<NSString *> *symbols = @[@"bubble.left.fill", @"globe"];
     for (NSInteger i = 0; i < 2; i++) {
@@ -3970,7 +3985,7 @@ static void YRing(NSView *box, BOOL on) {
         btns[i].image = Y_symbol(symbols[i], 12, NSFontWeightMedium);
         btns[i].contentTintColor = on ? Y_ink() : Y_muted();
     }
-    NSView *thumb = self.hannaModeThumb;
+    NSView *thumb = self.alisaModeThumb;
     if (thumb.superview) {
         CGFloat half = (thumb.superview.bounds.size.width - 6) / 2;
         NSRect target = NSMakeRect(3 + (act ? half : 0), 3, half, 32);
@@ -3982,34 +3997,34 @@ static void YRing(NSView *box, BOOL on) {
             }];
         } else thumb.frame = target;
     }
-    self.modeHint.stringValue = act ? @"Hanna can click, type and open pages. Stop her any time." : @"Ask about this page or your open tabs.";
-    NSString *ph = act ? @"Tell Hanna what to do" : @"Ask Hanna anything";
-    self.hannaInputField.placeholderAttributedString = [[NSAttributedString alloc] initWithString:ph attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
+    self.modeHint.stringValue = act ? @"Alisa can click, type and open pages. Stop her any time." : @"Ask about this page or your open tabs.";
+    NSString *ph = act ? @"Tell Alisa what to do" : @"Ask Alisa anything";
+    self.alisaInputField.placeholderAttributedString = [[NSAttributedString alloc] initWithString:ph attributes:@{NSForegroundColorAttributeName: Y_muted2(), NSFontAttributeName: [NSFont systemFontOfSize:14]}];
 }
 
-- (void)setHannaMode:(NSButton *)sender {
-    if (self.hannaAgent.running) { NSBeep(); return; }
-    self.hannaActMode = sender.tag == 1;
-    [self applyHannaMode];
-    HannaChatDocView *doc = (HannaChatDocView *)self.hannaScrollView.documentView;
-    for (NSView *view in [doc.messageViews copy]) if ([view isKindOfClass:HannaEmptyState.class]) {
+- (void)setAlisaMode:(NSButton *)sender {
+    if (self.alisaAgent.running) { NSBeep(); return; }
+    self.alisaActMode = sender.tag == 1;
+    [self applyAlisaMode];
+    AlisaChatDocView *doc = (AlisaChatDocView *)self.alisaScrollView.documentView;
+    for (NSView *view in [doc.messageViews copy]) if ([view isKindOfClass:AlisaEmptyState.class]) {
         [doc removeMessageView:view];
-        [doc addMessageView:[self hannaEmptyStateWithWidth:self.hannaScrollView.contentSize.width - 12]];
+        [doc addMessageView:[self alisaEmptyStateWithWidth:self.alisaScrollView.contentSize.width - 12]];
     }
 }
 
-- (void)hannaSendAgentTask:(NSString *)text {
-    if (self.hannaAgent.running) { NSBeep(); return; }
-    [self.hannaHistory addObject:@{@"role": @"user", @"content": text}];
-    [self appendHannaMessage:text from:@"user"];
-    self.hannaInputField.stringValue = @"";
+- (void)alisaSendAgentTask:(NSString *)text {
+    if (self.alisaAgent.running) { NSBeep(); return; }
+    [self.alisaHistory addObject:@{@"role": @"user", @"content": text}];
+    [self appendAlisaMessage:text from:@"user"];
+    self.alisaInputField.stringValue = @"";
     if (!self.aiSidebarVisible) [self toggleAISidebar];
-    if (!self.hannaAgent) self.hannaAgent = [[HannaAgent alloc] initWithWindow:self];
+    if (!self.alisaAgent) self.alisaAgent = [[AlisaAgent alloc] initWithWindow:self];
     // Append the user bubble before the task card enters the chat stream.
-    dispatch_async(dispatch_get_main_queue(), ^{ [self.hannaAgent runTask:text]; });
+    dispatch_async(dispatch_get_main_queue(), ^{ [self.alisaAgent runTask:text]; });
 }
 
-- (void)stopHannaAgent { [self.hannaAgent stop]; }
+- (void)stopAlisaAgent { [self.alisaAgent stop]; }
 
 - (void)layoutAgentOverlay {
     if (!self.agentGlow) return;
@@ -4041,10 +4056,10 @@ static void YRing(NSView *box, BOOL on) {
         bar.layer.shadowOpacity = 0.16;
         bar.layer.shadowRadius = 16;
         bar.layer.shadowOffset = NSMakeSize(0, -4);
-        NSView *mark = HannaAvatar(22);
+        NSView *mark = AlisaAvatar(22);
         mark.frame = NSMakeRect(18, 38, 22, 22);
         [bar addSubview:mark];
-        NSTextField *label = [NSTextField labelWithString:@"Hanna is browsing"];
+        NSTextField *label = [NSTextField labelWithString:@"Alisa is browsing"];
         label.font = [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold];
         label.textColor = Y_ink();
         label.frame = NSMakeRect(50, 40, 208, 20);
@@ -4057,7 +4072,7 @@ static void YRing(NSView *box, BOOL on) {
         [bar addSubview:self.agentStatusLabel];
         YSheetButton *stop = [[YSheetButton alloc] initWithTitle:@"Stop" primary:NO frame:NSMakeRect(270, 20, 76, 36)];
         stop.target = self;
-        stop.action = @selector(stopHannaAgent);
+        stop.action = @selector(stopAlisaAgent);
         stop.keyEquivalent = @"\033";
         stop.toolTip = @"Stop browser control (Escape)";
         [bar addSubview:stop];
@@ -4081,7 +4096,7 @@ static void YRing(NSView *box, BOOL on) {
     self.agentCursorLabel.stringValue = activity;
 }
 - (void)agentShowCursorAtX:(CGFloat)x y:(CGFloat)y viewportWidth:(CGFloat)width viewportHeight:(CGFloat)height action:(NSString *)action {
-    if (!self.hannaAgent.running || width <= 0 || height <= 0) return;
+    if (!self.alisaAgent.running || width <= 0 || height <= 0) return;
     if (!self.agentCursor) {
         YPassThroughView *cursor = [[YPassThroughView alloc] initWithFrame:NSMakeRect(0, 0, 210, 52)];
         cursor.wantsLayer = YES;
@@ -4104,7 +4119,7 @@ static void YRing(NSView *box, BOOL on) {
     CGFloat py = page.origin.y + (1 - y / height) * page.size.height;
     NSRect target = NSMakeRect(MAX(0, MIN(page.size.width - 210, px)), MAX(0, py - 52), 210, 52);
     BOOL wasHidden = self.agentCursor.hidden || !self.agentCursor.superview;
-    self.agentCursorLabel.stringValue = [@"Hanna · " stringByAppendingString:action];
+    self.agentCursorLabel.stringValue = [@"Alisa · " stringByAppendingString:action];
     [self.contentView addSubview:self.agentCursor positioned:NSWindowAbove relativeTo:nil];
     self.agentCursor.hidden = NO;
     if (wasHidden) self.agentCursor.frame = target;
@@ -4122,11 +4137,11 @@ static void YRing(NSView *box, BOOL on) {
     self.taskTimeline.wantsLayer = YES;
     self.taskTimeline.layer.cornerRadius = 20;
     self.taskTimeline.layer.backgroundColor = Y_soft().CGColor;
-    [(HannaChatDocView *)self.hannaScrollView.documentView addMessageView:self.taskTimeline];
+    [(AlisaChatDocView *)self.alisaScrollView.documentView addMessageView:self.taskTimeline];
     [self renderTaskTimeline];
-    self.hannaSendButton.enabled = NO;
-    [self updateHannaSendState];
-    self.hannaInputField.enabled = NO;
+    self.alisaSendButton.enabled = NO;
+    [self updateAlisaSendState];
+    self.alisaInputField.enabled = NO;
     [self showAgentOverlay];
 }
 
@@ -4154,7 +4169,7 @@ static void YRing(NSView *box, BOOL on) {
     if (!self.taskTimeline) return;
     NSView *card = self.taskTimeline;
     for (NSView *v in [card.subviews copy]) [v removeFromSuperview];
-    CGFloat width = self.hannaScrollView.contentSize.width - 12;
+    CGFloat width = self.alisaScrollView.contentSize.width - 12;
     CGFloat goalH = MAX(36, ceil([self.agentGoal boundingRectWithSize:NSMakeSize(width - 32, CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:13]}].size.height) + 8);
     NSMutableArray<NSNumber *> *rowHeights = [NSMutableArray array];
     CGFloat height = 70 + goalH;
@@ -4203,10 +4218,10 @@ static void YRing(NSView *box, BOOL on) {
         label.font = [NSFont systemFontOfSize:12]; label.textColor = Y_ink();
         label.frame = NSMakeRect(42, y + 4, width - 58, rowH - 8); [card addSubview:label];
     }
-    HannaChatDocView *doc = (HannaChatDocView *)self.hannaScrollView.documentView;
+    AlisaChatDocView *doc = (AlisaChatDocView *)self.alisaScrollView.documentView;
     [doc relayout];
-    [self.hannaScrollView.contentView scrollToPoint:NSMakePoint(0, MAX(0, doc.frame.size.height - self.hannaScrollView.contentSize.height))];
-    [self.hannaScrollView reflectScrolledClipView:self.hannaScrollView.contentView];
+    [self.alisaScrollView.contentView scrollToPoint:NSMakePoint(0, MAX(0, doc.frame.size.height - self.alisaScrollView.contentSize.height))];
+    [self.alisaScrollView reflectScrolledClipView:self.alisaScrollView.contentView];
 }
 
 - (void)agentFinished:(NSString *)message isError:(BOOL)isError {
@@ -4220,12 +4235,12 @@ static void YRing(NSView *box, BOOL on) {
     self.agentGlow.hidden = YES;
     self.agentBar.hidden = YES;
     self.agentCursor.hidden = YES;
-    self.hannaSendButton.enabled = YES;
-    [self updateHannaSendState];
-    self.hannaInputField.enabled = YES;
-    [self makeFirstResponder:self.hannaInputField];
-    if (!isError && message.length) [self.hannaHistory addObject:@{@"role": @"assistant", @"content": message}];
-    [self appendHannaMessage:isError ? [@"⚠️ " stringByAppendingString:message] : message from:@"hanna"];
+    self.alisaSendButton.enabled = YES;
+    [self updateAlisaSendState];
+    self.alisaInputField.enabled = YES;
+    [self makeFirstResponder:self.alisaInputField];
+    if (!isError && message.length) [self.alisaHistory addObject:@{@"role": @"assistant", @"content": message}];
+    [self appendAlisaMessage:isError ? [@"⚠️ " stringByAppendingString:message] : message from:@"alisa"];
 }
 
 - (void)agentConfirmWithTitle:(NSString *)title detail:(NSString *)detail completion:(void (^)(BOOL))completion {
@@ -4432,6 +4447,146 @@ static void YRing(NSView *box, BOOL on) {
     (void)sender;
     if (!self.findBar || self.findBar.hidden) { [self showFindBar:nil]; return; }
     [self runFindFresh:NO backwards:YES];
+}
+
+#pragma mark - Reader mode
+
+- (void)toggleReaderMode:(id)sender {
+    (void)sender;
+    self.readerMode = !self.readerMode;
+    [self showReaderMode:self.readerMode];
+}
+
+- (void)showReaderMode:(BOOL)show {
+    if (show) [self enterReaderMode];
+    else [self exitReaderMode:nil];
+}
+
+- (void)ensureReaderContainer {
+    if (self.readerContainer) return;
+    NSView *content = self.contentView;
+    NSView *container = [[NSView alloc] initWithFrame:content.bounds];
+    container.wantsLayer = YES;
+    container.layer.backgroundColor = [NSColor whiteColor].CGColor;
+    container.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    container.hidden = YES;
+
+    NSView *toolbar = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 100, 44)];
+    toolbar.wantsLayer = YES;
+    toolbar.layer.backgroundColor = [NSColor colorWithWhite:0.97 alpha:1].CGColor;
+    [container addSubview:toolbar];
+    self.readerToolbar = toolbar;
+
+    WKWebViewConfiguration *cfg = [[WKWebViewConfiguration alloc] init];
+    WKWebView *wv = [[WKWebView alloc] initWithFrame:NSMakeRect(0, 44, 100, 100) configuration:cfg];
+    wv.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [container addSubview:wv];
+    self.readerWebView = wv;
+
+    // Controls
+    CGFloat x = 12;
+    NSArray *defs = @[
+        @[@"Exit Reader", @"exitReaderMode:"],
+        @[@"A−", @"readerFontDown:"],
+        @[@"A+", @"readerFontUp:"],
+        @[@"Width", @"readerToggleWidth:"],
+    ];
+    for (NSArray *d in defs) {
+        NSButton *b = [NSButton buttonWithTitle:d[0] target:self action:NSSelectorFromString(d[1])];
+        b.bezelStyle = NSBezelStyleRounded;
+        b.frame = NSMakeRect(x, 6, 96, 30);
+        x += 104;
+        [toolbar addSubview:b];
+    }
+    self.readerFontSize = [[NSUserDefaults standardUserDefaults] integerForKey:@"saturn.reader.fontSize"];
+    if (self.readerFontSize < 14) self.readerFontSize = 18;
+    self.readerWide = [[NSUserDefaults standardUserDefaults] boolForKey:@"saturn.reader.wide"];
+
+    [content addSubview:container positioned:NSWindowAbove relativeTo:nil];
+    self.readerContainer = container;
+}
+
+- (void)enterReaderMode {
+    [self ensureReaderContainer];
+    self.readerContainer.hidden = NO;
+    [self.contentView addSubview:self.readerContainer positioned:NSWindowAbove relativeTo:nil];
+    self.readerTitle = self.webView.title ?: @"";
+    // extract article
+    NSString *js = @"(function(){"
+        "function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}"
+        "var title=(document.querySelector('h1')&&document.querySelector('h1').innerText)||document.title||'';"
+        "var root=document.querySelector('article')||document.querySelector('main')||document.body;"
+        "var nodes=root.querySelectorAll('p,h1,h2,h3,h4,li,blockquote,pre');"
+        "var html='';"
+        "for(var i=0;i<nodes.length;i++){var n=nodes[i];var t=(n.textContent||'').trim();if(!t)continue;"
+        "var tag=n.tagName.toLowerCase();if(tag==='h1'||tag==='h2'||tag==='h3'||tag==='h4')html+='<'+tag+'>'+esc(t)+'</'+tag+'>";
+        "else if(tag==='li')html+='<li>'+esc(t)+'</li>';else html+='<p>'+esc(t)+'</p>';}"
+        "if(!html)html='<p>'+esc((root.textContent||'').trim().slice(0,4000))+'</p>';"
+        "return {title:title,html:html,url:location.href};"
+    "})()";
+    __weak typeof(self) weakSelf = self;
+    [self.webView evaluateJavaScript:js completionHandler:^(id result, NSError *error) {
+        __strong typeof(weakSelf) s = weakSelf;
+        if (!s) return;
+        NSDictionary *d = [result isKindOfClass:[NSDictionary class]] ? result : nil;
+        s.readerTitle = ([d[@"title"] length] ? d[@"title"] : s.webView.title) ?: @"";
+        s.readerHTML = d[@"html"] ?: @"<p>Could not extract article.</p>";
+        s.readerURL = d[@"url"] ?: s.webView.URL.absoluteString ?: @"";
+        [s renderReaderContent];
+    }];
+}
+
+- (void)exitReaderMode:(id)sender {
+    (void)sender;
+    self.readerMode = NO;
+    if (self.readerContainer) self.readerContainer.hidden = YES;
+}
+
+- (void)renderReaderContent {
+    if (!self.readerWebView) return;
+    NSInteger fs = self.readerFontSize > 0 ? self.readerFontSize : 18;
+    CGFloat maxw = self.readerWide ? 980 : 720;
+    NSString *title = self.readerTitle ?: @"";
+    NSString *content = self.readerHTML ?: @"";
+    NSString *url = self.readerURL ?: @"";
+    // escape title (content already escaped)
+    NSString *escTitle = [title stringByReplacingOccurrencesOfString:@"&" withString:@"&amp;"];
+    escTitle = [escTitle stringByReplacingOccurrencesOfString:@"<" withString:@"&lt;"];
+    escTitle = [escTitle stringByReplacingOccurrencesOfString:@">" withString:@"&gt;"];
+    NSString *html = [NSString stringWithFormat:
+        @"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'><style>"
+        "body{font-family:-apple-system,'Helvetica Neue',sans-serif;font-size:%ldpx;line-height:1.65;color:#1d1d1f;background:#fff;margin:0;}"
+        ".wrap{max-width:%.0fpx;margin:0 auto;padding:48px 28px 80px;}"
+        "h1{font-size:1.7em;line-height:1.25;margin:0 0 8px;}"
+        "h2{font-size:1.35em;margin:24px 0 8px;}"
+        "h3{font-size:1.15em;margin:20px 0 6px;}"
+        "p{margin:0 0 16px;}"
+        "li{margin:0 0 8px;}"
+        "blockquote{border-left:3px solid #d2d2d7;padding-left:16px;color:#515154;margin:16px 0;}"
+        ".meta{color:#86868b;font-size:0.85em;margin-bottom:28px;word-break:break-all;}"
+        "img{max-width:100%%;height:auto;border-radius:8px;margin:12px 0;}"
+        "</style></head><body><div class='wrap'><h1>%@</h1><div class='meta'>%@</div>%@</div></body></html>",
+        (long)fs, maxw, escTitle, url, content];
+    [self.readerWebView loadHTMLString:html baseURL:nil];
+}
+
+- (void)readerFontDown:(id)sender {
+    (void)sender;
+    self.readerFontSize = MAX(12, self.readerFontSize - 2);
+    [[NSUserDefaults standardUserDefaults] setInteger:self.readerFontSize forKey:@"saturn.reader.fontSize"];
+    [self renderReaderContent];
+}
+- (void)readerFontUp:(id)sender {
+    (void)sender;
+    self.readerFontSize = MIN(32, self.readerFontSize + 2);
+    [[NSUserDefaults standardUserDefaults] setInteger:self.readerFontSize forKey:@"saturn.reader.fontSize"];
+    [self renderReaderContent];
+}
+- (void)readerToggleWidth:(id)sender {
+    (void)sender;
+    self.readerWide = !self.readerWide;
+    [[NSUserDefaults standardUserDefaults] setBool:self.readerWide forKey:@"saturn.reader.wide"];
+    [self renderReaderContent];
 }
 
 - (void)updateFindStatus {
@@ -5057,10 +5212,10 @@ static void YRing(NSView *box, BOOL on) {
         self.aiSidebar.animator.alphaValue = self.aiSidebarVisible ? 1.0 : 0;
     } completionHandler:^{
         if (!self.aiSidebarVisible) self.aiSidebar.hidden = YES;
-        NSLog(@"[saturn] Hanna sidebar %@", self.aiSidebarVisible?@"opened":@"closed");
+        NSLog(@"[saturn] Alisa sidebar %@", self.aiSidebarVisible?@"opened":@"closed");
     }];
 }
-- (void)handleHannaPan:(NSPanGestureRecognizer *)pan {
+- (void)handleAlisaPan:(NSPanGestureRecognizer *)pan {
     static NSPoint startOrigin;
     static NSPoint startLocation;
     if (pan.state == NSGestureRecognizerStateBegan) {
@@ -5095,16 +5250,16 @@ static void YRing(NSView *box, BOOL on) {
     dispatch_async(dispatch_get_main_queue(), ^{ [self.addressBar selectText:nil]; });
 }
 
-#pragma mark - Hanna Chat (OpenCode Zen) — premium bubbles + markdown + typing
+#pragma mark - Alisa Chat (OpenCode Zen) — premium bubbles + markdown + typing
 
-- (NSView *)hannaBubbleWithText:(NSString *)text from:(NSString *)sender {
-    BOOL isHanna = [sender isEqualToString:@"hanna"];
-    CGFloat maxW = isHanna ? 306 : 290;
-    CGFloat paddingX = isHanna ? 0 : 16;
-    CGFloat paddingY = isHanna ? 2 : 10;
+- (NSView *)alisaBubbleWithText:(NSString *)text from:(NSString *)sender {
+    BOOL isAlisa = [sender isEqualToString:@"alisa"];
+    CGFloat maxW = isAlisa ? 306 : 290;
+    CGFloat paddingX = isAlisa ? 0 : 16;
+    CGFloat paddingY = isAlisa ? 2 : 10;
 
     NSAttributedString *attr = nil;
-    if (isHanna) {
+    if (isAlisa) {
         attr = AttrForMarkdownColored(text, 14, Y_ink(), YES);
     } else {
         NSMutableParagraphStyle *ps = [[NSMutableParagraphStyle alloc] init];
@@ -5121,18 +5276,18 @@ static void YRing(NSView *box, BOOL on) {
     CGFloat textW = ceil(textRect.size.width) + 2;
     if (textW < 20) textW = 20;
     if (textW > maxTextW) textW = maxTextW;
-    if (isHanna) textW = maxTextW;   // plain text uses the full column so wrapping matches the measurement
+    if (isAlisa) textW = maxTextW;   // plain text uses the full column so wrapping matches the measurement
 
     CGFloat textH = ceil(textRect.size.height);
     if (textH < 20) textH = 20;
 
     CGFloat bubbleW = textW + (paddingX * 2);
     CGFloat bubbleH = textH + (paddingY * 2);
-    if (!isHanna && bubbleH < 40) bubbleH = 40;
+    if (!isAlisa && bubbleH < 40) bubbleH = 40;
 
     NSView *bubble = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, bubbleW, bubbleH)];
     bubble.wantsLayer = YES;
-    if (!isHanna) {
+    if (!isAlisa) {
         bubble.layer.cornerRadius = MIN(bubbleH / 2, 20);
         bubble.layer.backgroundColor = Y_blue().CGColor;
     }
@@ -5149,13 +5304,13 @@ static void YRing(NSView *box, BOOL on) {
     [tv.textContainer setWidthTracksTextView:NO];
     [tv.textContainer setContainerSize:NSMakeSize(textW, CGFLOAT_MAX)];
     tv.textContainer.lineFragmentPadding = 0;
-    tv.linkTextAttributes = @{NSForegroundColorAttributeName: isHanna ? Y_blue() : [NSColor whiteColor], NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle)};
+    tv.linkTextAttributes = @{NSForegroundColorAttributeName: isAlisa ? Y_blue() : [NSColor whiteColor], NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle)};
     tv.textStorage.attributedString = attr;
     // Measure using the same text container that renders the message.
     [tv.layoutManager ensureLayoutForTextContainer:tv.textContainer];
     textH = MAX(20, ceil(NSMaxY([tv.layoutManager usedRectForTextContainer:tv.textContainer])) + 4);
     tv.frame = NSMakeRect(paddingX, paddingY, textW, textH);
-    bubbleH = MAX(isHanna ? 24 : 40, textH + paddingY * 2);
+    bubbleH = MAX(isAlisa ? 24 : 40, textH + paddingY * 2);
     [bubble setFrameSize:NSMakeSize(bubbleW, bubbleH)];
     bubble.layer.masksToBounds = YES;
     [bubble addSubview:tv];
@@ -5198,15 +5353,15 @@ static void YRing(NSView *box, BOOL on) {
     [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
 }
 
-- (void)appendHannaMessage:(NSString *)text from:(NSString *)sender {
+- (void)appendAlisaMessage:(NSString *)text from:(NSString *)sender {
     if (!text.length) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSScrollView *scroll = self.hannaScrollView;
-        HannaChatDocView *doc = (HannaChatDocView *)scroll.documentView;
-        if (![doc isKindOfClass:[HannaChatDocView class]]) return;
+        NSScrollView *scroll = self.alisaScrollView;
+        AlisaChatDocView *doc = (AlisaChatDocView *)scroll.documentView;
+        if (![doc isKindOfClass:[AlisaChatDocView class]]) return;
 
         for (NSView *v in [doc.messageViews copy]) {
-            if ([v isKindOfClass:[HannaEmptyState class]]) [doc removeMessageView:v];
+            if ([v isKindOfClass:[AlisaEmptyState class]]) [doc removeMessageView:v];
         }
 
         BOOL isUser = [sender isEqualToString:@"user"];
@@ -5233,7 +5388,7 @@ static void YRing(NSView *box, BOOL on) {
             [card addSubview:label];
             [doc addMessageView:card];
         } else {
-            NSView *bubble = [self hannaBubbleWithText:text from:sender];
+            NSView *bubble = [self alisaBubbleWithText:text from:sender];
             if (!isUser) [self typewriteInTextView:(NSTextView *)bubble.subviews.firstObject];
             if (isUser) {
                 bubble.identifier = @"userRow";
@@ -5244,13 +5399,13 @@ static void YRing(NSView *box, BOOL on) {
                 CGFloat bubbleW = bubble.bounds.size.width, bubbleH = MAX(28, bubble.bounds.size.height);
                 CGFloat rowH = bubbleH + 4 + actionsH;
                 NSView *row = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, bubbleW + 34, rowH)];
-                NSView *av = HannaAvatar(24);
+                NSView *av = AlisaAvatar(24);
                 av.frame = NSMakeRect(0, rowH - 26, 24, 24);
                 [row addSubview:av];
                 bubble.frame = NSMakeRect(32, actionsH + 4, bubbleW, bubble.bounds.size.height);
                 [row addSubview:bubble];
 
-                NSButton *copy = [NSButton buttonWithTitle:@"" target:self action:@selector(hannaCopyMessage:)];
+                NSButton *copy = [NSButton buttonWithTitle:@"" target:self action:@selector(alisaCopyMessage:)];
                 copy.frame = NSMakeRect(28, 0, 70, 24);
                 copy.bordered = NO;
                 copy.wantsLayer = YES;
@@ -5259,11 +5414,11 @@ static void YRing(NSView *box, BOOL on) {
                 copy.imageHugsTitle = YES;
                 copy.focusRingType = NSFocusRingTypeNone;
                 copy.toolTip = @"Copy this reply";
-                [self hannaStyleCopyButton:copy copied:NO];
-                objc_setAssociatedObject(copy, "hannaText", text, OBJC_ASSOCIATION_COPY_NONATOMIC);
+                [self alisaStyleCopyButton:copy copied:NO];
+                objc_setAssociatedObject(copy, "alisaText", text, OBJC_ASSOCIATION_COPY_NONATOMIC);
                 [row addSubview:copy];
 
-                row.identifier = @"hannaRow";
+                row.identifier = @"alisaRow";
                 [doc addMessageView:row];
             }
         }
@@ -5274,7 +5429,7 @@ static void YRing(NSView *box, BOOL on) {
     });
 }
 
-- (void)hannaStyleCopyButton:(NSButton *)b copied:(BOOL)copied {
+- (void)alisaStyleCopyButton:(NSButton *)b copied:(BOOL)copied {
     NSMutableParagraphStyle *ps = [[NSMutableParagraphStyle alloc] init];
     ps.alignment = NSTextAlignmentCenter;
     b.attributedTitle = [[NSAttributedString alloc] initWithString:copied ? @" Copied" : @" Copy" attributes:@{
@@ -5283,21 +5438,21 @@ static void YRing(NSView *box, BOOL on) {
     b.contentTintColor = copied ? Y_positive() : Y_muted();
 }
 
-- (void)hannaCopyMessage:(NSButton *)sender {
-    NSString *text = objc_getAssociatedObject(sender, "hannaText");
+- (void)alisaCopyMessage:(NSButton *)sender {
+    NSString *text = objc_getAssociatedObject(sender, "alisaText");
     if (!text.length) return;
     [[NSPasteboard generalPasteboard] clearContents];
     [[NSPasteboard generalPasteboard] setString:text forType:NSPasteboardTypeString];
-    [self hannaStyleCopyButton:sender copied:YES];
+    [self alisaStyleCopyButton:sender copied:YES];
     __weak NSButton *weak = sender;
     __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ if (weak) [weakSelf hannaStyleCopyButton:weak copied:NO]; });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ if (weak) [weakSelf alisaStyleCopyButton:weak copied:NO]; });
 }
 
-- (void)getHannaBrowserContextWithCompletion:(void(^)(NSString *context))completion {
-    // Collect current tab + all tabs + visible text for Hanna so she CAN see your browser (no more "I can't see your tabs")
+- (void)getAlisaBrowserContextWithCompletion:(void(^)(NSString *context))completion {
+    // Collect current tab + all tabs + visible text for Alisa so she CAN see your browser (no more "I can't see your tabs")
     NSMutableString *ctx = [NSMutableString string];
-    [ctx appendString:@"You are Hanna, an AI assistant integrated into the Saturn browser. You CAN see the user's browser and you HAVE access to their current tabs, URL, and page content. Do NOT say you can't see tabs/screens. Use the context below to answer about what's open.\n\n"];
+    [ctx appendString:@"You are Alisa, an AI assistant integrated into the Saturn browser. You CAN see the user's browser and you HAVE access to their current tabs, URL, and page content. Do NOT say you can't see tabs/screens. Use the context below to answer about what's open.\n\n"];
     // All tabs
     [ctx appendFormat:@"Open tabs (%lu):\n", (unsigned long)self.tabs.count];
     for (NSInteger i=0; i<(NSInteger)self.tabs.count; i++) {
@@ -5354,57 +5509,57 @@ static void YRing(NSView *box, BOOL on) {
     });
 }
 
-- (void)hannaSend:(id)sender {
-    NSString *text = [self.hannaInputField.stringValue stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+- (void)alisaSend:(id)sender {
+    NSString *text = [self.alisaInputField.stringValue stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     if (!text.length) return;
-    if (self.hannaActMode) { [self hannaSendAgentTask:text]; return; }
+    if (self.alisaActMode) { [self alisaSendAgentTask:text]; return; }
     // Add user message
-    [self.hannaHistory addObject:@{@"role": @"user", @"content": text}];
-    [self appendHannaMessage:text from:@"user"];
-    self.hannaInputField.stringValue = @"";
-    [self updateHannaSendState];
+    [self.alisaHistory addObject:@{@"role": @"user", @"content": text}];
+    [self appendAlisaMessage:text from:@"user"];
+    self.alisaInputField.stringValue = @"";
+    [self updateAlisaSendState];
     // UI busy — premium typing animation + spinner
-    self.hannaSendButton.enabled = NO;
-    [self updateHannaSendState];
-    self.hannaInputField.enabled = NO;
-    [self.hannaSpinner startAnimation:nil];
-    self.hannaSpinner.hidden = NO;
-    [self showHannaTyping:YES];
+    self.alisaSendButton.enabled = NO;
+    [self updateAlisaSendState];
+    self.alisaInputField.enabled = NO;
+    [self.alisaSpinner startAnimation:nil];
+    self.alisaSpinner.hidden = NO;
+    [self showAlisaTyping:YES];
     // Ensure sidebar visible
     if (!self.aiSidebarVisible) [self toggleAISidebar];
 
     __weak typeof(self) weakSelf = self;
-    NSArray *historyCopy = [self.hannaHistory copy];
+    NSArray *historyCopy = [self.alisaHistory copy];
     NSMutableArray *histForAPI = [historyCopy mutableCopy];
     if (histForAPI.count > 0) [histForAPI removeLastObject];
 
-    // Fetch browser context so Hanna CAN see tabs/screen
+    // Fetch browser context so Alisa CAN see tabs/screen
     void (^sendWithContext)(NSString *) = ^(NSString *browserContext) {
-        [[HannaClient shared] sendMessage:text history:histForAPI browserContext:browserContext completion:^(NSString *reply, NSError *error){
+        [[AlisaClient shared] sendMessage:text history:histForAPI browserContext:browserContext completion:^(NSString *reply, NSError *error){
         __strong typeof(weakSelf) s = weakSelf;
         if (!s) return;
         dispatch_async(dispatch_get_main_queue(), ^{
-            [s.hannaSpinner stopAnimation:nil];
-            s.hannaSpinner.hidden = YES;
-            [s showHannaTyping:NO];
-            s.hannaSendButton.enabled = YES;
-            [s updateHannaSendState];
-            s.hannaInputField.enabled = YES;
-            [s.hannaInputField becomeFirstResponder];
+            [s.alisaSpinner stopAnimation:nil];
+            s.alisaSpinner.hidden = YES;
+            [s showAlisaTyping:NO];
+            s.alisaSendButton.enabled = YES;
+            [s updateAlisaSendState];
+            s.alisaInputField.enabled = YES;
+            [s.alisaInputField becomeFirstResponder];
             if (error) {
                 NSString *msg = error.localizedDescription ?: @"Unknown error";
-                [s appendHannaMessage:[NSString stringWithFormat:@"⚠️ %@", msg] from:@"hanna"];
-                NSLog(@"[hanna] error %@", error);
+                [s appendAlisaMessage:[NSString stringWithFormat:@"⚠️ %@", msg] from:@"alisa"];
+                NSLog(@"[alisa] error %@", error);
                 return;
             }
             NSString *clean = [reply stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
             if (!clean.length) clean = @"(Empty reply)";
-            [s.hannaHistory addObject:@{@"role": @"assistant", @"content": clean}];
-            [s appendHannaMessage:clean from:@"hanna"];
+            [s.alisaHistory addObject:@{@"role": @"assistant", @"content": clean}];
+            [s appendAlisaMessage:clean from:@"alisa"];
         });
     }];
     };
-    [self getHannaBrowserContextWithCompletion:^(NSString *browserContext) {
+    [self getAlisaBrowserContextWithCompletion:^(NSString *browserContext) {
         if ([text isEqualToString:@"Compare products in my open tabs"]) {
             [self getProductComparisonContext:^(NSString *extra) { sendWithContext([browserContext stringByAppendingString:extra]); }];
         } else sendWithContext(browserContext);
@@ -5478,12 +5633,12 @@ static void YRing(NSView *box, BOOL on) {
         @"padding:6px 12px;border-radius:999px;margin-bottom:14px;}"
         @"h1{font-size:24px;margin:6px 0 4px;}p{opacity:.7;font-size:14px;margin:0 0 18px;}"
         @"img{width:100%%;border-radius:14px;border:1px solid rgba(255,255,255,.15);display:block;}</style></head>"
-        @"<body><div class='card'><div class='badge'>✦ Hanna</div>"
+        @"<body><div class='card'><div class='badge'>✦ Alisa</div>"
         @"<h1>✨ Here is my favorite image! 🪐</h1>"
         @"<p>You found the Saturn Easter egg</p>"
-        @"<img src='%@' alt='Hanna favorite image'></div></body></html>", img];
+        @"<img src='%@' alt='Alisa favorite image'></div></body></html>", img];
     ChromeTabView *tab = self.activeTab;
-    if (tab) [tab updateTitle:@"✨ Hanna's Favorite Image" favicon:nil active:YES];
+    if (tab) [tab updateTitle:@"✨ Alisa's Favorite Image" favicon:nil active:YES];
     [self.webView loadHTMLString:html baseURL:nil];
     [self updateNavButtons];
 }
@@ -5540,9 +5695,9 @@ static void YRing(NSView *box, BOOL on) {
         if (commandSelector == @selector(moveDown:) && showing) { [self.suggestView moveSelection:1]; return YES; }
         if (commandSelector == @selector(moveUp:) && showing) { [self.suggestView moveSelection:-1]; return YES; }
     }
-    if (control == self.hannaInputField) {
+    if (control == self.alisaInputField) {
         if (commandSelector == @selector(insertNewline:)) {
-            [self hannaSend:nil];
+            [self alisaSend:nil];
             return YES;
         }
         if (commandSelector == @selector(cancelOperation:)) {
@@ -5553,7 +5708,7 @@ static void YRing(NSView *box, BOOL on) {
     return NO;
 }
 - (void)controlTextDidChange:(NSNotification *)obj {
-    if (obj.object == self.hannaInputField) [self updateHannaSendState];
+    if (obj.object == self.alisaInputField) [self updateAlisaSendState];
     if (obj.object == self.tabSearch) [self renderTabOverview];
     if (obj.object == self.addressBar) [self updateSuggestions];
 }
@@ -5779,7 +5934,7 @@ static void YRing(NSView *box, BOOL on) {
 
     if (selectedText.length > 0) {
         // === 1. HIGHLIGHTED TEXT MENU ===
-        NSMenuItem *explainItem = [[NSMenuItem alloc] initWithTitle:@"✦ Explain with Hanna" action:@selector(handleExplainWithHanna:) keyEquivalent:@""];
+        NSMenuItem *explainItem = [[NSMenuItem alloc] initWithTitle:@"✦ Explain with Alisa" action:@selector(handleExplainWithAlisa:) keyEquivalent:@""];
         explainItem.target = self;
         explainItem.representedObject = info;
         [customMenu addItem:explainItem];
@@ -5877,7 +6032,7 @@ static void YRing(NSView *box, BOOL on) {
 
 #pragma mark - Context Menu Action Handlers
 
-- (void)handleExplainWithHanna:(NSMenuItem *)sender {
+- (void)handleExplainWithAlisa:(NSMenuItem *)sender {
     NSDictionary *info = [sender.representedObject isKindOfClass:[NSDictionary class]] ? sender.representedObject : self.lastContextMenuInfo;
     NSString *text = [info[@"text"] isKindOfClass:[NSString class]] ? info[@"text"] : @"";
     if (!text.length) return;
@@ -5898,7 +6053,7 @@ static void YRing(NSView *box, BOOL on) {
         targetRect = NSMakeRect(mouseView.x - 10, mouseView.y - 10, 20, 20);
     }
 
-    [self explainSelectionWithHannaText:text targetRect:targetRect webView:wv];
+    [self explainSelectionWithAlisaText:text targetRect:targetRect webView:wv];
 }
 
 - (void)handleCopySelection:(NSMenuItem *)sender {
@@ -5960,7 +6115,7 @@ static void YRing(NSView *box, BOOL on) {
     }
 }
 
-- (void)explainSelectionWithHannaText:(NSString *)text targetRect:(NSRect)rect webView:(WKWebView *)wv {
+- (void)explainSelectionWithAlisaText:(NSString *)text targetRect:(NSRect)rect webView:(WKWebView *)wv {
     if (!text.length) return;
 
     if (self.explainPopover) {
@@ -5968,7 +6123,7 @@ static void YRing(NSView *box, BOOL on) {
         self.explainPopover = nil;
     }
 
-    HannaExplainBubbleController *vc = [[HannaExplainBubbleController alloc] initWithSelectedText:text];
+    AlisaExplainBubbleController *vc = [[AlisaExplainBubbleController alloc] initWithSelectedText:text];
 
     NSPopover *popover = [[NSPopover alloc] init];
     popover.contentViewController = vc;
@@ -5996,11 +6151,11 @@ static void YRing(NSView *box, BOOL on) {
         return;
     }
 
-    // Query Hanna
+    // Query Alisa
     NSString *prompt = [NSString stringWithFormat:@"Please explain the following highlighted text clearly and concisely using formatting/markdown where helpful (bold terms, bullet points if multiple points):\n\n\"%@\"", text];
     NSString *context = [NSString stringWithFormat:@"Current Page: %@\nURL: %@", wv.title ?: @"", wv.URL.absoluteString ?: @""];
 
-    [[HannaClient shared] sendMessage:prompt history:@[] browserContext:context completion:^(NSString *reply, NSError *error) {
+    [[AlisaClient shared] sendMessage:prompt history:@[] browserContext:context completion:^(NSString *reply, NSError *error) {
         if (error) {
             NSString *msg = error.localizedDescription ?: @"Could not generate explanation.";
             [vc showExplanation:msg isError:YES];
@@ -6057,12 +6212,12 @@ static void YRing(NSView *box, BOOL on) {
 
 #pragma mark - Saturn Voice Agent Delegate
 
-- (void)hannaSetVoiceVisualState:(int)state {
+- (void)alisaSetVoiceVisualState:(int)state {
     NSColor *bg = Y_soft(), *tint = Y_ink();
     if (state == 1) { bg = Y_negative(); tint = [NSColor whiteColor]; }
     else if (state == 2) { bg = Y_blue(); tint = [NSColor whiteColor]; }
     else if (state == 3) { bg = Y_positive(); tint = [NSColor whiteColor]; }
-    for (NSButton *b in @[self.hannaVoiceButton]) {
+    for (NSButton *b in @[self.alisaVoiceButton]) {
         b.layer.backgroundColor = bg.CGColor;
         b.contentTintColor = tint;
     }
@@ -6075,8 +6230,8 @@ static void YRing(NSView *box, BOOL on) {
 
     if (agent.isListening || agent.isSpeaking) {
         [agent cancel];
-        self.hannaVoiceHUD.hidden = YES;
-        [self hannaSetVoiceVisualState:0];
+        self.alisaVoiceHUD.hidden = YES;
+        [self alisaSetVoiceVisualState:0];
         return;
     }
 
@@ -6084,48 +6239,48 @@ static void YRing(NSView *box, BOOL on) {
         [self toggleAISidebar];
     }
 
-    self.hannaVoiceHUD.hidden = NO;
-    self.hannaVoiceStatusLabel.stringValue = @"● Initializing mic & glm-5.3-flash…";
-    self.hannaVoiceTranscriptLabel.stringValue = @"Say something to Hanna…";
-    [self hannaSetVoiceVisualState:1];
+    self.alisaVoiceHUD.hidden = NO;
+    self.alisaVoiceStatusLabel.stringValue = @"● Initializing mic & glm-5.3-flash…";
+    self.alisaVoiceTranscriptLabel.stringValue = @"Say something to Alisa…";
+    [self alisaSetVoiceVisualState:1];
 
-    [self getHannaBrowserContextWithCompletion:^(NSString *context) {
+    [self getAlisaBrowserContextWithCompletion:^(NSString *context) {
         [[SaturnVoiceAgent shared] startListeningWithBrowserContext:context];
     }];
 }
 
 - (void)voiceAgentDidChangeState:(SaturnVoiceAgentState)state statusMessage:(NSString *)status {
-    self.hannaVoiceStatusLabel.stringValue = [NSString stringWithFormat:@"● %@", status ?: @"Voice Active"];
+    self.alisaVoiceStatusLabel.stringValue = [NSString stringWithFormat:@"● %@", status ?: @"Voice Active"];
     if (state == SaturnVoiceAgentStateIdle) {
         [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx){
             ctx.duration = 0.25;
-            self.hannaVoiceHUD.animator.alphaValue = 0;
+            self.alisaVoiceHUD.animator.alphaValue = 0;
         } completionHandler:^{
-            self.hannaVoiceHUD.hidden = YES;
-            self.hannaVoiceHUD.alphaValue = 1.0;
+            self.alisaVoiceHUD.hidden = YES;
+            self.alisaVoiceHUD.alphaValue = 1.0;
         }];
-        [self hannaSetVoiceVisualState:0];
+        [self alisaSetVoiceVisualState:0];
     } else if (state == SaturnVoiceAgentStateListening) {
-        self.hannaVoiceHUD.hidden = NO;
-        self.hannaVoiceHUD.alphaValue = 1.0;
-        [self hannaSetVoiceVisualState:1];
+        self.alisaVoiceHUD.hidden = NO;
+        self.alisaVoiceHUD.alphaValue = 1.0;
+        [self alisaSetVoiceVisualState:1];
     } else if (state == SaturnVoiceAgentStateProcessing) {
-        [self hannaSetVoiceVisualState:2];
+        [self alisaSetVoiceVisualState:2];
     } else if (state == SaturnVoiceAgentStateSpeaking) {
-        [self hannaSetVoiceVisualState:3];
+        [self alisaSetVoiceVisualState:3];
     }
 }
 
 - (void)voiceAgentDidUpdateLiveTranscript:(NSString *)transcript {
     if (transcript.length) {
-        self.hannaVoiceTranscriptLabel.stringValue = [NSString stringWithFormat:@"“%@”", transcript];
+        self.alisaVoiceTranscriptLabel.stringValue = [NSString stringWithFormat:@"“%@”", transcript];
     }
 }
 
 - (void)voiceAgentDidUpdateAudioLevel:(CGFloat)level {
     NSArray<NSNumber *> *multipliers = @[@0.6, @1.0, @1.4, @1.0, @0.7];
-    for (NSInteger i = 0; i < (NSInteger)self.hannaVoiceWaveBars.count; i++) {
-        NSView *bar = self.hannaVoiceWaveBars[i];
+    for (NSInteger i = 0; i < (NSInteger)self.alisaVoiceWaveBars.count; i++) {
+        NSView *bar = self.alisaVoiceWaveBars[i];
         CGFloat mult = [multipliers[i] doubleValue];
         CGFloat h = MAX(4.0, MIN(30.0, level * 28.0 * mult + (arc4random_uniform(5))));
         NSRect f = bar.frame;
@@ -6137,17 +6292,17 @@ static void YRing(NSView *box, BOOL on) {
 
 - (void)voiceAgentDidFinishWithUserText:(NSString *)userText replyText:(NSString *)replyText {
     if (userText.length) {
-        [self appendHannaMessage:userText from:@"user"];
-        [self.hannaHistory addObject:@{@"role": @"user", @"content": userText}];
+        [self appendAlisaMessage:userText from:@"user"];
+        [self.alisaHistory addObject:@{@"role": @"user", @"content": userText}];
     }
     if (replyText.length) {
-        [self appendHannaMessage:replyText from:@"hanna"];
-        [self.hannaHistory addObject:@{@"role": @"assistant", @"content": replyText}];
+        [self appendAlisaMessage:replyText from:@"alisa"];
+        [self.alisaHistory addObject:@{@"role": @"assistant", @"content": replyText}];
     }
 }
 
 - (void)voiceAgentDidFailWithError:(NSError *)error {
-    self.hannaVoiceStatusLabel.stringValue = [NSString stringWithFormat:@"● %@", error.localizedDescription];
+    self.alisaVoiceStatusLabel.stringValue = [NSString stringWithFormat:@"● %@", error.localizedDescription];
 }
 
 @end

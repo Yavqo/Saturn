@@ -252,12 +252,13 @@
     [mainMenu addItem:viewItem];
     NSMenu *viewMenu = [[NSMenu alloc] initWithTitle:@"View"]; viewItem.submenu = viewMenu;
     [viewMenu addItemWithTitle:@"Reload" action:@selector(reloadView:) keyEquivalent:@"r"];
+    [viewMenu addItemWithTitle:@"Reader Mode" action:@selector(toggleReaderMode:) keyEquivalent:@"R"];
     [viewMenu addItemWithTitle:@"Reload Ignoring Cache" action:@selector(hardReload:) keyEquivalent:@"R"];
     [viewMenu addItemWithTitle:@"Stop Loading" action:@selector(stopLoadingPage:) keyEquivalent:@"."];
     [viewMenu addItemWithTitle:@"Back" action:@selector(backView:) keyEquivalent:@"["];
     [viewMenu addItemWithTitle:@"Forward" action:@selector(forwardView:) keyEquivalent:@"]"];
     [viewMenu addItem:[NSMenuItem separatorItem]];
-    [viewMenu addItemWithTitle:@"Ask Hanna" action:@selector(toggleHanna:) keyEquivalent:@"i"];
+    [viewMenu addItemWithTitle:@"Ask Alisa" action:@selector(toggleAlisa:) keyEquivalent:@"i"];
     NSMenuItem *fs = [viewMenu addItemWithTitle:@"Enter Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
     fs.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagControl;
     [viewMenu addItem:[NSMenuItem separatorItem]];

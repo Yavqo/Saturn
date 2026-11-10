@@ -113,9 +113,9 @@ A built-in password manager. **Vault ▸ Open Yavqo Vault** (⇧⌘V) opens it; 
 - Generate strong passwords, see strength and reuse warnings, check a password against known breaches (only a 5-character hash prefix is sent), and import a CSV exported from Chrome or Safari.
 - Copied passwords are hidden from clipboard history and cleared after 30 seconds. The vault locks after 5 minutes, when the Mac sleeps, or on **Vault ▸ Lock Vault**.
 
-## Hanna research tools
+## Alisa research tools
 
-In Hanna's **Browse** mode, you can ask her to:
+In Alisa's **Browse** mode, you can ask her to:
 - Find text on the page and jump to a specific match.
 - Read your selected text.
 - Extract links, optionally filtered by topic.

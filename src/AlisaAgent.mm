@@ -1,5 +1,5 @@
-#import "HannaAgent.h"
-#import "HannaClient.h"
+#import "AlisaAgent.h"
+#import "AlisaClient.h"
 #import "SaturnWindow.h"
 #import "Settings.h"
 #import <WebKit/WebKit.h>
@@ -163,7 +163,7 @@ static NSDictionary *Tool(NSString *name, NSString *desc, NSDictionary *props, N
              @"parameters": @{@"type": @"object", @"properties": props ?: @{}, @"required": required ?: @[]}}};
 }
 
-@implementation HannaAgent {
+@implementation AlisaAgent {
     __weak SaturnWindow *_window;
     NSMutableArray<NSDictionary *> *_messages;
     NSInteger _steps;
@@ -211,7 +211,7 @@ static NSDictionary *Tool(NSString *name, NSString *desc, NSDictionary *props, N
 }
 
 - (NSString *)systemPrompt {
-    return [[HannaClient personaPrompt] stringByAppendingString:@"\n\n---\n\nYou are built into the Saturn browser. The user has asked you to do a task by controlling their browser, so use the tools to do it.\n\n"
+    return [[AlisaClient personaPrompt] stringByAppendingString:@"\n\n---\n\nYou are built into the Saturn browser. The user has asked you to do a task by controlling their browser, so use the tools to do it.\n\n"
     "How to work:\n"
     "- Start with get_page to see where you are. Elements are referred to by the number shown in the latest get_page; numbers change when the page changes, so call get_page again after anything that loads or changes a page.\n"
     "- For research, use extract_tables for tabular data, extract_links for sources, read_selection for selected text, get_page_details for metadata, and read_tabs to compare loaded pages. inspect_images provides descriptions and URLs, not visual image understanding. find_text locates visible text; inspect_forms describes fields without exposing values. Report missing or truncated data honestly.\n"
@@ -245,10 +245,10 @@ static NSDictionary *Tool(NSString *name, NSString *desc, NSDictionary *props, N
     [_window agentActivity:@"Waiting for the page…"];
     CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
     __block NSInteger quiet = 0;
-    __weak HannaAgent *weak = self;
+    __weak AlisaAgent *weak = self;
     __block void (^poll)(void);
     poll = ^{
-        HannaAgent *s = weak;
+        AlisaAgent *s = weak;
         if (!s) return;
         WKWebView *wv = [s webView];
         quiet = (wv && !wv.loading) ? quiet + 1 : 0;
@@ -312,7 +312,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
 }
 
 - (void)runTool:(NSString *)name args:(NSDictionary *)args done:(ToolDone)done {
-    __weak HannaAgent *weak = self;
+    __weak AlisaAgent *weak = self;
     SaturnWindow *w = _window;
     if (!w) { done(@"The window is gone.", nil); return; }
 
@@ -357,7 +357,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
         if (![idNum isKindOfClass:[NSNumber class]]) { done(@"Missing element id.", nil); return; }
         NSDictionary *idArg = @{@"id": idNum};
         [self evaluate:Script(kDescribeJS, idArg, NO) completion:^(NSDictionary *info) {
-            HannaAgent *s = weak;
+            AlisaAgent *s = weak;
             if (!s) return;
             if (![info[@"found"] boolValue]) { done(@"That element is no longer on the page. Call get_page again.", nil); return; }
             NSString *label = info[@"label"];
@@ -391,7 +391,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
                 }
             };
 
-            // Secrets: never typed by Hanna
+            // Secrets: never typed by Alisa
             if ([name isEqualToString:@"type"]) {
                 NSString *meta = [[NSString stringWithFormat:@"%@ %@ %@", info[@"type"], info[@"autocomplete"], info[@"name"]] lowercaseString];
                 NSArray *secret = @[@"password", @"cc-number", @"cc-csc", @"cc-exp", @"card", @"cvv", @"cvc", @"ssn", @"social-security"];
@@ -404,7 +404,7 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
             // Risky clicks need the user's OK
             if ([name isEqualToString:@"click"] && [s isSensitiveLabel:label href:info[@"href"]]) {
                 NSString *host = [self webView].URL.host ?: @"this page";
-                [w agentConfirmWithTitle:[NSString stringWithFormat:@"Hanna wants to click %@", quoted]
+                [w agentConfirmWithTitle:[NSString stringWithFormat:@"Alisa wants to click %@", quoted]
                                   detail:[NSString stringWithFormat:@"On %@. This could send, buy, delete or confirm something.", host]
                               completion:^(BOOL allow) {
                     if (allow) act();
@@ -528,9 +528,9 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     if (++_steps > kMaxSteps) { [self finish:@"I stopped after 25 steps without finishing. Tell me what to do next, or try a smaller task." error:NO]; return; }
     [_window agentActivity:@"Choosing the next step…"];
     [self trimOldSnapshots];
-    __weak HannaAgent *weak = self;
-    [[HannaClient shared] chatWithMessages:_messages tools:[self toolSchemas] completion:^(NSDictionary *message, NSError *error) {
-        HannaAgent *s = weak;
+    __weak AlisaAgent *weak = self;
+    [[AlisaClient shared] chatWithMessages:_messages tools:[self toolSchemas] completion:^(NSDictionary *message, NSError *error) {
+        AlisaAgent *s = weak;
         if (!s || run != s->_runID) return;
         if (error) { [s finish:[NSString stringWithFormat:@"I could not continue: %@", error.localizedDescription] error:YES]; return; }
         NSArray *calls = [message[@"tool_calls"] isKindOfClass:[NSArray class]] ? message[@"tool_calls"] : @[];
@@ -561,9 +561,9 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
 
 - (void)prepareCursorForTool:(NSString *)name args:(NSDictionary *)args run:(NSInteger)run completion:(void (^)(void))completion {
     NSString *script = [NSString stringWithFormat:@"(function(A){let el=A.id?document.querySelector('[data-saturn-id=\"'+A.id+'\"]'):null;if(!el&&A.kind==='press_key')el=document.activeElement;if(el)el.scrollIntoView({block:'center',inline:'center'});let r=el?el.getBoundingClientRect():null;return JSON.stringify({ok:true,x:r?r.left+r.width/2:innerWidth*0.5,y:r?r.top+r.height/2:innerHeight*0.35,width:innerWidth,height:innerHeight})})(%@)", JSONString(@{@"id":args[@"id"] ?: @0, @"kind":name})];
-    __weak HannaAgent *weak = self;
+    __weak AlisaAgent *weak = self;
     [self evaluate:script completion:^(NSDictionary *point) {
-        HannaAgent *s = weak; if (!s || run != s->_runID) return;
+        AlisaAgent *s = weak; if (!s || run != s->_runID) return;
         [s->_window agentShowCursorAtX:[point[@"x"] doubleValue] y:[point[@"y"] doubleValue] viewportWidth:[point[@"width"] doubleValue] viewportHeight:[point[@"height"] doubleValue] action:[s actionLabel:name]];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 350 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
             if (run != s->_runID) return;
@@ -582,11 +582,11 @@ typedef void (^ToolDone)(NSString *result, NSString *stepLine);
     NSData *argData = [call[@"function"][@"arguments"] isKindOfClass:[NSString class]] ? [call[@"function"][@"arguments"] dataUsingEncoding:NSUTF8StringEncoding] : nil;
     id parsed = argData ? [NSJSONSerialization JSONObjectWithData:argData options:0 error:nil] : nil;
     NSDictionary *args = [parsed isKindOfClass:[NSDictionary class]] ? parsed : @{};
-    __weak HannaAgent *weak = self;
+    __weak AlisaAgent *weak = self;
     [_window agentWillPerformAction:[self actionLabel:name]];
     [self prepareCursorForTool:name args:args run:run completion:^{
     [self runTool:name args:args done:^(NSString *result, NSString *stepLine) {
-        HannaAgent *s = weak;
+        AlisaAgent *s = weak;
         if (!s || run != s->_runID) return;
         BOOL success = stepLine.length && ![stepLine hasPrefix:@"Stopped:"] && ![stepLine hasPrefix:@"Could not"] && ![stepLine hasPrefix:@"You declined"];
         [s->_window agentDidPerformAction:stepLine.length ? stepLine : (result ?: @"Action failed") success:success];

@@ -22,14 +22,14 @@ set(SATURN_SOURCES
     src/SaturnShieldLists.mm
     src/SaturnExtensions.mm
     src/SaturnExtensionsPage.mm
-    src/HannaClient.mm
+    src/AlisaClient.mm
     src/SaturnVoiceAgent.mm
     src/SaturnDownloads.mm
     src/SaturnBookmarks.mm
     src/SaturnHistory.mm
     src/SaturnSession.mm
     src/SaturnPermissions.mm
-    src/HannaAgent.mm
+    src/AlisaAgent.mm
     src/SaturnUpdater.mm
     src/SaturnReporter.mm
     src/SaturnDefaultBrowser.mm

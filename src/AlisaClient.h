@@ -1,10 +1,10 @@
 #pragma once
 #import <Foundation/Foundation.h>
 
-@interface HannaClient : NSObject
+@interface AlisaClient : NSObject
 + (instancetype)shared;
 @property (nonatomic, readonly) BOOL isConfigured;
-// Hanna's identity, voice and company facts. Prepended to every system prompt (chat, Act mode, voice).
+// Alisa's identity, voice and company facts. Prepended to every system prompt (chat, Act mode, voice).
 + (NSString *)personaPrompt;
 - (void)sendMessage:(NSString *)userText
             history:(NSArray<NSDictionary*> *)history // array of {role, content}

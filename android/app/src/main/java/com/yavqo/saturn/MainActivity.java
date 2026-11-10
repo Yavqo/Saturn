@@ -21,11 +21,17 @@ public class MainActivity extends Activity {
     private Button tabButton, backButton, forwardButton, reloadButton;
     private ProgressBar progress;
     private android.content.SharedPreferences prefs;
+    private final ArrayList<String> bookmarks = new ArrayList<>();
+    private final ArrayList<String> history = new ArrayList<>();
+    private LinearLayout findBar;
+    private EditText findField;
+    private boolean findVisible;
     private static final String HOME = "https://mars.yavqo.com";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = getSharedPreferences("browser", MODE_PRIVATE);
+        loadLists();
         root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.WHITE);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
@@ -48,6 +54,14 @@ public class MainActivity extends Activity {
         progress = new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100); progress.setProgressTintList(android.content.res.ColorStateList.valueOf(BrowserUi.INK));
         root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
+        findBar = new LinearLayout(this); findBar.setOrientation(LinearLayout.HORIZONTAL); findBar.setPadding(dp(12),dp(6),dp(12),dp(6)); findBar.setBackgroundColor(Color.WHITE); findBar.setVisibility(View.GONE);
+        findField = new EditText(this); findField.setSingleLine(true); findField.setHint("Find in page"); findField.setTextSize(14); findField.setTextColor(BrowserUi.INK); findField.setBackgroundColor(Color.TRANSPARENT);
+        findBar.addView(findField,new LinearLayout.LayoutParams(0,-2,1));
+        Button prev = new Button(this); prev.setText("Prev"); prev.setOnClickListener(v -> current().findNext(false)); findBar.addView(prev);
+        Button next = new Button(this); next.setText("Next"); next.setOnClickListener(v -> current().findNext(true)); findBar.addView(next);
+        Button closeFind = new Button(this); closeFind.setText("Close"); closeFind.setOnClickListener(v -> hideFindBar()); findBar.addView(closeFind);
+        findField.addTextChangedListener(new android.text.TextWatcher(){ public void beforeTextChanged(CharSequence s,int a,int b,int c){} public void onTextChanged(CharSequence s,int a,int b,int c){ if(s.length()>0) current().findAllAsync(s.toString()); else current().clearMatches(); } public void afterTextChanged(android.text.Editable s){} });
+        root.addView(findBar,new LinearLayout.LayoutParams(-1,-2));
         pages = new FrameLayout(this); pages.setBackgroundColor(Color.WHITE);
         root.addView(pages,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout bottom = new LinearLayout(this); bottom.setOrientation(LinearLayout.VERTICAL);
@@ -69,6 +83,8 @@ public class MainActivity extends Activity {
         forwardButton=button(tools,"forward",v -> { if(current().canGoForward()) current().goForward(); }); forwardButton.setContentDescription("Forward");
         button(tools,"home",v -> current().loadUrl(HOME)).setContentDescription("Mars home");
         reloadButton=button(tools,"reload",v -> { if(current().getProgress()<100) current().stopLoading(); else current().reload(); }); reloadButton.setContentDescription("Reload or stop");
+        button(tools,"search",v -> showFindBar()).setContentDescription("Find in page");
+        button(tools,"R",v -> showReaderMode()).setContentDescription("Reader mode");
         tabButton=button(tools,"1",v -> showTabs());
         for(int i=0;i<tools.getChildCount();i++) tools.getChildAt(i).setLayoutParams(new LinearLayout.LayoutParams(0,dp(48),1));
         root.setFocusableInTouchMode(true); root.requestFocus();
@@ -108,7 +124,16 @@ public class MainActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view,int value) { if(!tabs.isEmpty() && view==current()) { progress.setProgress(value); progress.setVisibility(value==100 ? View.INVISIBLE : View.VISIBLE); reloadButton.setText(value==100 ? "reload" : "close"); } }
-            @Override public void onReceivedTitle(WebView view,String title) { save(); }
+            @Override public void onReceivedTitle(WebView view,String title) { save(); addToHistory(view.getUrl()); }
+            @Override public void onPermissionRequest(PermissionRequest request) { request.grant(request.getResources()); }
+        });
+        web.setDownloadListener((downloadUrl,userAgent,contentDisposition,mimetype,contentLength) -> {
+            DownloadManager.Request req=new DownloadManager.Request(Uri.parse(downloadUrl));
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, Uri.parse(downloadUrl).getLastPathSegment());
+            DownloadManager dm=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+            dm.enqueue(req);
+            Toast.makeText(this,"Downloading…",Toast.LENGTH_SHORT).show();
         });
         tabs.add(web); select(tabs.size()-1); web.loadUrl(safeUrl(url)); save();
     }
@@ -150,20 +175,34 @@ public class MainActivity extends Activity {
     private String domain(WebView web) { String host=Uri.parse(safeUrl(web.getUrl())).getHost(); return host==null?"New tab":host; }
     private void showTabs() {
         LinearLayout list=column(); Dialog dialog=sheet("Your tabs",tabs.size()+" open · Pick up where you left off",list);
-        for(int i=0;i<tabs.size();i++) {
-            final int index=i; WebView web=tabs.get(i);
-            LinearLayout card=new LinearLayout(this);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(14),dp(10),dp(4),dp(10));
-            card.setBackground(BrowserUi.touch(this,i==selected?BrowserUi.SURFACE:Color.WHITE,18,i==selected?BrowserUi.INK:BrowserUi.LINE));
-            LinearLayout.LayoutParams cardParams=new LinearLayout.LayoutParams(-1,-2);cardParams.bottomMargin=dp(10);list.addView(card,cardParams);
-            ImageView favicon=new ImageView(this); if(web.getFavicon()!=null) favicon.setImageBitmap(web.getFavicon()); else favicon.setImageResource(com.yavqo.saturn.R.drawable.saturn_logo);
-            LinearLayout.LayoutParams iconParams=new LinearLayout.LayoutParams(dp(28),dp(28));iconParams.rightMargin=dp(14);card.addView(favicon,iconParams);
-            LinearLayout labels=column(); String title=web.getTitle();TextView name=BrowserUi.text(this,title==null?"New tab":title,16,BrowserUi.INK,true);
-            name.setMaxLines(1);name.setEllipsize(android.text.TextUtils.TruncateAt.END); labels.addView(name);
-            TextView host=BrowserUi.text(this,(i==selected?"Current · ":"")+domain(web),13,BrowserUi.MUTED,false);host.setMaxLines(1);host.setEllipsize(android.text.TextUtils.TruncateAt.END);labels.addView(host);
-            card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));card.setOnClickListener(v->{select(index);dialog.dismiss();});
-            button(card,"close",v->{WebView removed=tabs.remove(index);pages.removeAllViews();removed.destroy();if(tabs.isEmpty())newTab(HOME);else {if(index<selected)selected--;select(Math.min(selected,tabs.size()-1));}dialog.dismiss();showTabs();}).setContentDescription("Close "+(title==null?"tab":title));
-        }
-        action(list,"New tab",v->{dialog.dismiss();newTab(HOME);});dialog.show();
+        EditText search=new EditText(this); search.setHint("Search tabs"); search.setSingleLine(true);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,dp(44)); sp.bottomMargin=dp(8); list.addView(search,sp);
+        Runnable render=() -> {
+            // remove previous cards (keep search box)
+            for(int c=list.getChildCount()-1;c>=1;c--) list.removeViewAt(c);
+            String q=search.getText().toString().toLowerCase();
+            for(int i=0;i<tabs.size();i++) {
+                WebView web=tabs.get(i);
+                String title=web.getTitle()==null?"New tab":web.getTitle();
+                String url=web.getUrl()==null?"":web.getUrl();
+                if(!q.isEmpty() && !title.toLowerCase().contains(q) && !url.toLowerCase().contains(q)) continue;
+                final int index=i;
+                LinearLayout card=new LinearLayout(this);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(14),dp(10),dp(4),dp(10));
+                card.setBackground(BrowserUi.touch(this,index==selected?BrowserUi.SURFACE:Color.WHITE,18,index==selected?BrowserUi.INK:BrowserUi.LINE));
+                LinearLayout.LayoutParams cardParams=new LinearLayout.LayoutParams(-1,-2);cardParams.bottomMargin=dp(10);list.addView(card,cardParams);
+                ImageView favicon=new ImageView(this); if(web.getFavicon()!=null) favicon.setImageBitmap(web.getFavicon()); else favicon.setImageResource(com.yavqo.saturn.R.drawable.saturn_logo);
+                LinearLayout.LayoutParams iconParams=new LinearLayout.LayoutParams(dp(28),dp(28));iconParams.rightMargin=dp(14);card.addView(favicon,iconParams);
+                LinearLayout labels=column(); TextView name=BrowserUi.text(this,title,16,BrowserUi.INK,true);
+                name.setMaxLines(1);name.setEllipsize(android.text.TextUtils.TruncateAt.END); labels.addView(name);
+                TextView host=BrowserUi.text(this,(index==selected?"Current · ":"")+domain(web),13,BrowserUi.MUTED,false);host.setMaxLines(1);host.setEllipsize(android.text.TextUtils.TruncateAt.END);labels.addView(host);
+                card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));card.setOnClickListener(v->{select(index);dialog.dismiss();});
+                button(card,"close",v->{WebView removed=tabs.remove(index);pages.removeAllViews();removed.destroy();if(tabs.isEmpty())newTab(HOME);else {if(index<selected)selected--;select(Math.min(selected,tabs.size()-1));}dialog.dismiss();showTabs();}).setContentDescription("Close "+title);
+            }
+            action(list,"New tab",v->{dialog.dismiss();newTab(HOME);});
+        };
+        search.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){} public void onTextChanged(CharSequence s,int a,int b,int c){render.run();} public void afterTextChanged(android.text.Editable s){}});
+        render.run();
+        dialog.show();
     }
     private void settingRow(LinearLayout list,String title,String detail,String trailing,View.OnClickListener click) {
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(16),dp(16),dp(16),dp(16));row.setBackground(BrowserUi.touch(this,BrowserUi.SURFACE,16,0));
@@ -174,8 +213,10 @@ public class MainActivity extends Activity {
     private void showSettings() {
         LinearLayout list=column();Dialog dialog=sheet("Settings","Make Saturn feel like yours",list);
         settingRow(list,"Search engine","Used when you search from the address bar",prefs.getString("engine","Mars"),v->{dialog.dismiss();showSearchSettings();});
+        settingRow(list,"Bookmarks","Saved pages",String.valueOf(bookmarks.size()),v->{dialog.dismiss();showBookmarks();});
+        settingRow(list,"History","Recently visited pages",String.valueOf(history.size()),v->{dialog.dismiss();showHistory();});
         settingRow(list,"Clear browsing data","Cookies, cache and website storage","",v->{dialog.dismiss();showClearData();});
-        TextView about=BrowserUi.text(this,"Saturn for Android  0.4.0\nAndroid preview · Hanna is available on desktop",13,BrowserUi.MUTED,false);about.setPadding(dp(4),dp(16),dp(4),dp(8));about.setLineSpacing(dp(5),1);list.addView(about);dialog.show();
+        TextView about=BrowserUi.text(this,"Saturn for Android  0.7.0\nAndroid preview · Alisa is available on desktop",13,BrowserUi.MUTED,false);about.setPadding(dp(4),dp(16),dp(4),dp(8));about.setLineSpacing(dp(5),1);list.addView(about);dialog.show();
     }
     private void showSearchSettings() {
         LinearLayout list=column();Dialog dialog=sheet("Search engine","Choose where your searches begin",list);
@@ -194,4 +235,50 @@ public class MainActivity extends Activity {
     @Override protected void onResume() { super.onResume(); for(WebView web:tabs) web.onResume(); }
     @Override public void onBackPressed() { if(current().canGoBack()) current().goBack(); else super.onBackPressed(); }
     @Override protected void onDestroy() { pages.removeAllViews(); for(WebView web:tabs) web.destroy(); super.onDestroy(); }
+
+    private void showFindBar() { if(findBar!=null) { findBar.setVisibility(View.VISIBLE); findVisible=true; findField.requestFocus(); } }
+    private void hideFindBar() { if(findBar!=null) { findBar.setVisibility(View.GONE); findVisible=false; current().clearMatches(); } }
+    private void showReaderMode() {
+        current().evaluateJavascript("(function(){var r=document.querySelector('article')||document.querySelector('main')||document.body;return (r&&r.innerText)?r.innerText.slice(0,12000):document.body.innerText.slice(0,12000);})()", value -> {
+            String text = value == null ? "" : value.replace("\n","\n").replace("\"","").trim();
+            TextView tv=new TextView(this); tv.setText(text); tv.setTextSize(16); tv.setPadding(dp(20),dp(20),dp(20),dp(20));
+            ScrollView sv=new ScrollView(this); sv.addView(tv);
+            Dialog d=new Dialog(this); d.setContentView(sv); d.setTitle("Reader mode"); d.show();
+        });
+    }
+    private void addToHistory(String url) {
+        if(url==null || url.isEmpty()) return;
+        if(!history.isEmpty() && history.get(history.size()-1).equals(url)) return;
+        history.add(url);
+        if(history.size()>100) history.remove(0);
+        saveLists();
+    }
+    private void loadLists() {
+        try { JSONArray b=new JSONArray(prefs.getString("bookmarks","[]")); for(int i=0;i<b.length();i++) bookmarks.add(b.getString(i)); } catch(JSONException ignored) {}
+        try { JSONArray h=new JSONArray(prefs.getString("history","[]")); for(int i=0;i<h.length();i++) history.add(h.getString(i)); } catch(JSONException ignored) {}
+    }
+    private void saveLists() {
+        JSONArray b=new JSONArray(); for(String x:bookmarks) b.put(x);
+        JSONArray h=new JSONArray(); for(String x:history) h.put(x);
+        prefs.edit().putString("bookmarks",b.toString()).putString("history",h.toString()).apply();
+    }
+    private void showBookmarks() {
+        LinearLayout list=column(); Dialog dialog=sheet("Bookmarks","Saved pages",list);
+        action(list,"Bookmark current page",v->{bookmarks.add(current().getUrl()); saveLists(); Toast.makeText(this,"Bookmarked",Toast.LENGTH_SHORT).show(); dialog.dismiss(); showBookmarks();});
+        for(String u:new ArrayList<>(bookmarks)) {
+            TextView row=BrowserUi.text(this,u,14,BrowserUi.INK,false); row.setPadding(dp(8),dp(8),dp(8),dp(8));
+            row.setOnClickListener(v->{current().loadUrl(u); dialog.dismiss();});
+            list.addView(row);
+        }
+        dialog.show();
+    }
+    private void showHistory() {
+        LinearLayout list=column(); Dialog dialog=sheet("History","Recently visited",list);
+        for(String u:new ArrayList<>(history)) {
+            TextView row=BrowserUi.text(this,u,14,BrowserUi.INK,false); row.setPadding(dp(8),dp(8),dp(8),dp(8));
+            row.setOnClickListener(v->{current().loadUrl(u); dialog.dismiss();});
+            list.addView(row);
+        }
+        dialog.show();
+    }
 }

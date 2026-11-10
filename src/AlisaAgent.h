@@ -3,9 +3,9 @@
 
 @class SaturnWindow;
 
-// Lets Hanna drive the browser: she reads the page, clicks, types, scrolls and opens tabs through tools,
+// Lets Alisa drive the browser: she reads the page, clicks, types, scrolls and opens tabs through tools,
 // one step at a time, until the task is done or the user stops her.
-@interface HannaAgent : NSObject
+@interface AlisaAgent : NSObject
 - (instancetype)initWithWindow:(SaturnWindow *)window;
 @property (nonatomic, readonly) BOOL running;
 - (void)runTask:(NSString *)task;
